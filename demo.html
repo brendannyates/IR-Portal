@@ -1,0 +1,1579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IR Portal Tracker</title>
+
+<style>
+:root{
+  --bg:#f6f1e7;--surface:#fffdf8;--surface2:#f1eadc;--ink:#2b2622;--muted:#6f665c;--line:#e3d9c6;
+  --accent:#b5532f;--accent-ink:#fff;--accent-soft:#f6e3da;
+  --ok:#2f7a45;--ok-soft:#e3f1e6;--warn:#9a6a0b;--warn-soft:#fbf0d6;--bad:#b3261e;--bad-soft:#fbe4e1;--info:#2d5f8a;--info-soft:#e2edf6;
+  --radius:12px;--shadow:0 1px 2px rgba(60,40,20,.06),0 2px 8px rgba(60,40,20,.05);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1c1916;--surface:#26221e;--surface2:#2f2a25;--ink:#efe8dc;--muted:#a89f92;--line:#3b352f;
+  --accent:#e0805c;--accent-ink:#1c1916;--accent-soft:#3a2a22;
+  --ok:#7cc592;--ok-soft:#1f3326;--warn:#e3b75a;--warn-soft:#3a3020;--bad:#f08a80;--bad-soft:#3d2320;--info:#8ab8e0;--info-soft:#1f2c38;
+  --shadow:none;}}
+:root[data-theme="dark"]{--bg:#1c1916;--surface:#26221e;--surface2:#2f2a25;--ink:#efe8dc;--muted:#a89f92;--line:#3b352f;--accent:#e0805c;--accent-ink:#1c1916;--accent-soft:#3a2a22;--ok:#7cc592;--ok-soft:#1f3326;--warn:#e3b75a;--warn-soft:#3a3020;--bad:#f08a80;--bad-soft:#3d2320;--info:#8ab8e0;--info-soft:#1f2c38;--shadow:none}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,-apple-system,sans-serif}
+body{overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+header.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:8px;padding:10px 12px 6px}
+.brand{font-weight:700;letter-spacing:.2px;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.brand .dot{width:22px;height:22px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:10px;font-weight:800}
+.brand small{font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iconbtn{border:1px solid var(--line);background:var(--surface);border-radius:10px;min-width:36px;height:36px;display:grid;place-items:center;cursor:pointer;padding:0 8px}
+.iconbtn:hover{border-color:var(--accent)}
+nav.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:0 8px 8px}
+nav.tabs button{border:1px solid var(--line);background:var(--surface);padding:7px 8px;border-radius:10px;cursor:pointer;color:var(--ink);font-weight:700;min-height:38px;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+nav.tabs button:hover{border-color:var(--accent)}
+nav.tabs button[aria-current="page"]{border-color:var(--accent)}
+.bar.wrap{flex-wrap:wrap;row-gap:6px}
+.iconbtn svg{width:18px;height:18px;display:block}
+:root[data-theme="dark"] #busy{background:rgba(20,16,12,.65);color:var(--ink)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #busy{background:rgba(20,16,12,.65);color:var(--ink)}}
+.iconbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+@media(max-width:480px){.brand small{display:none}}
+nav.tabs button[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+.badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;margin-left:4px}
+.badge.neutral{background:var(--muted)}
+nav.tabs button[aria-current="page"] .badge{background:var(--accent-ink);color:var(--accent)}
+main{padding:12px;max-width:1500px;margin:0 auto}
+.cols{display:block}
+@media(min-width:1000px){.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px;align-items:start}.cols>div>.card:first-child{margin-top:0}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;margin-bottom:12px}
+.card h2{font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 .sp{flex:1}
+h3{font-size:13px;margin:12px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.muted{color:var(--muted)} .small{font-size:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;min-height:38px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{min-height:32px;padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.linkbtn{background:none;border:0;color:var(--accent);font-weight:600;cursor:pointer;padding:4px 2px;font-size:13px}
+.linkbtn:hover{text-decoration:underline}
+input.fld,select.fld,textarea.fld{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;min-height:38px}
+textarea.fld{min-height:80px;resize:vertical}
+input.fld:focus,select.fld:focus,textarea.fld:focus,.btn:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+label.lbl{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px;font-weight:600}
+.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}
+.chk input{width:16px;height:16px;accent-color:var(--accent)}
+.pill{display:inline-flex;align-items:center;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;border:1.5px solid var(--line);background:var(--surface2);color:var(--ink);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent} .pill.warn{background:var(--warn-soft);color:var(--warn);border-color:transparent} .pill.bad{background:var(--bad-soft);color:var(--bad);border-color:transparent} .pill.info{background:var(--info-soft);color:var(--info);border-color:transparent}
+.msg{border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13px}
+.msg.ok{background:var(--ok-soft);color:var(--ok)} .msg.bad{background:var(--bad-soft);color:var(--bad)} .msg.warn{background:var(--warn-soft);color:var(--warn)} .msg.info{background:var(--info-soft);color:var(--info)}
+.empty{color:var(--muted);text-align:center;padding:18px 8px}
+/* KPI tiles */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;cursor:pointer;text-align:left;box-shadow:var(--shadow)}
+.kpi:hover{border-color:var(--accent)}
+.kpi .n{font-size:26px;font-weight:800;line-height:1.1}
+.kpi .l{font-size:12px;color:var(--muted);font-weight:600}
+.kpi.bad .n{color:var(--bad)} .kpi.warn .n{color:var(--warn)} .kpi.info .n{color:var(--info)}
+/* location blocks */
+.loc{background:var(--surface2);border-radius:14px;padding:10px 12px;margin:8px 0}
+.loc>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;flex-wrap:wrap}
+.loc>summary::-webkit-details-marker{display:none}
+.loc>summary::after{content:"▸";margin-left:auto;color:var(--muted)} .loc[open]>summary::after{content:"▾"}
+.loc .lname{font-weight:700}
+.dline{display:grid;grid-template-columns:minmax(0,1fr) 120px 34px;gap:8px;align-items:center;padding:4px 2px;font-size:13px}
+.dline .track{height:8px;border-radius:5px;background:var(--surface);overflow:hidden}
+.dline .fillbar{height:100%;border-radius:5px;background:var(--accent)}
+.dline .fillbar.nc{background:var(--muted)}
+.dline .c{text-align:right;font-weight:700}
+.dline.nc{color:var(--muted)}
+/* worklist table */
+.tblwrap{overflow:auto;border:1px solid var(--line);border-radius:10px}
+table.wl{border-collapse:collapse;width:100%;font-size:13px}
+table.wl th{position:sticky;top:0;background:var(--surface2);text-align:left;padding:8px;font-size:12px;color:var(--muted);white-space:nowrap;border-bottom:1px solid var(--line)}
+table.wl th button{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;font-weight:700}
+table.wl th button[aria-sort]{color:var(--accent)}
+table.wl td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.wl tr.nc td{color:var(--muted)}
+table.wl tr.grp td{background:var(--accent-soft);font-weight:700;color:var(--ink)}
+.due-bad{color:var(--bad);font-weight:700} .due-warn{color:var(--warn);font-weight:700}
+@media(max-width:640px){
+  table.wl thead{display:none}
+  table.wl,table.wl tbody,table.wl tr,table.wl td{display:block;width:100%}
+  table.wl tr{border-bottom:1px solid var(--line);padding:6px 8px}
+  table.wl td{border:0;padding:1px 0;display:flex;gap:10px}
+  table.wl td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:12px;min-width:84px}
+}
+/* groups (provider / clinic) */
+.grp{border-left:4px solid var(--line)}
+.grp.sent{border-left-color:var(--ok)} .grp.ready{border-left-color:var(--warn)} .grp.noemail{border-left-color:var(--bad)}
+.grp .gh{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grp .gname{font-weight:800;font-size:15px}
+.mini{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+.mini th{text-align:left;color:var(--muted);font-weight:700;padding:4px 6px;border-bottom:1px solid var(--line)}
+.mini td{padding:4px 6px;border-bottom:1px solid var(--line)}
+.sec{border-radius:12px;padding:8px 12px;margin-top:10px}
+.sec.amber{background:var(--warn-soft)} .sec.blue{background:var(--info-soft)} .sec.gray{background:var(--surface2)}
+.sec h4{margin:0 0 4px;font-size:13px}
+.subnav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.subnav button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:600;color:var(--muted);cursor:pointer;min-height:36px}
+.subnav button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.subnav button[aria-pressed="true"] .badge{background:var(--accent-ink);color:var(--accent)}
+/* settings tables */
+table.set{border-collapse:collapse;width:100%;font-size:13px}
+table.set th{text-align:left;color:var(--muted);font-size:12px;padding:6px;border-bottom:1px solid var(--line)}
+table.set td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.set input.fld,table.set select.fld{min-height:32px;padding:5px 8px}
+/* modal */
+#modal{position:fixed;inset:0;background:rgba(30,20,10,.45);display:flex;align-items:flex-start;justify-content:center;padding:4vh 10px;z-index:20;overflow:auto}
+#modal[hidden]{display:none}
+#modal .sheet{background:var(--surface);border-radius:14px;max-width:880px;width:100%;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+.emailprev{border:1px solid var(--line);border-radius:10px;padding:14px;background:#fff;color:#222;max-height:52vh;overflow:auto}
+.hdrs{display:grid;grid-template-columns:70px minmax(0,1fr);gap:4px 8px;font-size:13px;margin-bottom:10px}
+.hdrs b{color:var(--muted)}
+.hdrs span{word-break:break-word}
+iframe.print{width:100%;height:65vh;border:1px solid var(--line);border-radius:10px;background:#fff}
+#toast{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:30;max-width:92vw}
+#busy{position:fixed;inset:0;display:grid;place-items:center;background:rgba(246,241,231,.6);z-index:25;font-weight:700}
+#busy[hidden]{display:none}
+.demo-ribbon{background:var(--info-soft);color:var(--info);text-align:center;font-size:12px;font-weight:700;padding:4px}
+@media print{header.top,.noprint{display:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" hidden role="dialog" aria-modal="true"><div class="sheet" id="sheet"></div></div>
+<div id="busy" hidden>Reading the workbook…</div>
+<div id="toast" aria-live="polite"></div>
+<script>
+'use strict';
+// ---------- helpers ----------
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const norm = s => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+function wlLoadSafe(){ try { const v = JSON.parse(localStorage.getItem('irWlClinics') || 'null'); return v && (v.mode === 'all' || Array.isArray(v.list)) ? v : { mode: 'all' }; } catch { return { mode: 'all' }; } }
+const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const ICON_GEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+const ICON_REFRESH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>';
+// light / dark: follows the computer until someone picks one; remembered on this computer
+function themePref(){ try { return localStorage.getItem('irTheme') || ''; } catch { return ''; } }
+function applyTheme(){ const t = themePref(); if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
+const isDark = () => { const t = themePref(); return t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); };
+applyTheme();
+const startTab = () => { try { return localStorage.getItem('irStart') === 'rep' ? 'rep' : 'dash'; } catch { return 'dash'; } };
+const S = { wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
+
+// Columns are found by header name, so moving or inserting columns in the Filtered tab doesn't break anything.
+const COLS = {
+  id: ['incident id', 'incident'], last: ['last name', 'last'], first: ['first name', 'first'], gender: ['gender', 'sex'], dob: ['dob', 'date of birth'],
+  desc: ['description', 'description option', 'description type'], org: ['prov org', 'provider org', 'provider organization'], fac: ['facility', 'location'],
+  mrn: ['mrn'], dos: ['dos', 'date of service'], prov: ['provider', 'rendering provider'], act: ['last activity'], due: ['due date', 'due'], entry: ['entry date', 'entered'],
+};
+const NEED = ['desc', 'fac', 'mrn', 'prov'];
+const LABEL = { id:'Incident ID', last:'Last Name', first:'First Name', gender:'Gender', dob:'DOB', desc:'Description', org:'Prov Org', fac:'Facility', mrn:'MRN', dos:'DOS', prov:'Provider', act:'Last Activity', due:'Due Date', entry:'Entry Date' };
+
+function toDate(v){
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  if (typeof v === 'number' && v > 20000 && v < 80000) return new Date(1899, 11, 30 + Math.floor(v));
+  const t = String(v).trim(); let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m){ let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[1] - 1, +m[2]); }
+  m = t.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  return null;
+}
+const today = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const days = (a, b) => Math.round((a - b) / 864e5);
+const fmtD = d => d ? `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}` : '';
+const fmtShort = d => `${d.getMonth() + 1}.${d.getDate()}.${String(d.getFullYear()).slice(-2)}`;
+const codify = (last, first) => (String(last || '').replace(/[^A-Za-z]/g, '').slice(0, 3) + String(first || '').replace(/[^A-Za-z]/g, '').slice(0, 3)).toUpperCase();
+const CREDS = /\b(md|do|np|pmhnp|pmhnp-bc|fnp|fnp-c|pa|pa-c|lcsw|lmft|psyd|phd|rn|aprn|bc|mph|dnp)\b\.?/gi;
+function firstName(prov){
+  let p = String(prov || '').replace(CREDS, '').replace(/[.,]+\s*$/, '').trim();
+  if (p.includes(',')) p = p.split(',')[1] || '';
+  else { const t = p.split(/\s+/); if (t.length >= 2 && p === p.toUpperCase()) p = t[1]; } // portal style: LAST FIRST
+  const tok = p.trim().split(/\s+/)[0] || '';
+  return tok ? tok[0].toUpperCase() + tok.slice(1).toLowerCase() : '';
+}
+const splitEmails = s => String(s || '').split(/[;,\s]+/).map(x => x.trim()).filter(x => /@/.test(x));
+const uniq = arr => { const seen = new Set(); return arr.filter(x => { const k = x.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }); };
+
+// ---------- settings ----------
+const DEFAULTS = {
+  sheet: 'auto',
+  ctrl: {},        // description -> false when NOT controllable (anything unlisted counts as controllable)
+  route: {},       // description -> 'provider' | 'clinic' | 'none'
+  providers: {},   // provider name -> { email, greet, sup, leader }
+  clinics: {},     // facility -> { email, leader }
+  ccAlways: '', ccClinic: '', supDefault: '', signoff: '',
+  codify: true, rename: {},
+  rptTo: 'PracticeLeadersSummit@mymhs.com; PracticeLeadersCoastal@mymhs.com; mbaxter@mymhs.com', rptCc: 'bgonzalez@mymhs.com; kmcleod@mymhs.com', rptSubject: 'IR Portal',
+  erIntro: 'Auths! Please see the Filtered tabs on the attached document to see our outstanding non-interventional auth related items.', erKeep: null, irDecide: {},
+  provIntro: 'The following encounters have been identified as pending signature in the billing portal. Could you please complete sign off on these this week?',
+  clinicIntro: 'The following items in the billing portal need clinic follow-up. Could you please work through these this week?',
+  disclaimer: 'CONFIDENTIALITY NOTICE: This message and any attachments may contain protected health information (PHI) that is privileged and confidential under HIPAA and applicable state law. It is intended only for the individual(s) named above. If you are not the intended recipient, you are notified that any review, use, disclosure, copying or distribution of this message is prohibited. If you received this message in error, please notify the sender immediately and delete it.',
+};
+function defaultRoute(desc){
+  const d = norm(desc);
+  if (/signature|unsigned/.test(d)) return 'provider';
+  return 'clinic'; // incomplete charts, missing treatment reports, ER/HIM/NB registration items, anything new
+}
+const routeOf = desc => S.cfg.route[desc] || defaultRoute(desc);
+const AUTH_CAT = 'ER/HIM/NB/Authorization Missing';
+const isCtrl = desc => desc === AUTH_CAT ? S.cfg.ctrl[desc] === true : S.cfg.ctrl[desc] !== false; // auth is off unless switched on in Settings
+const inView = r => S.allTypes || isCtrl(r.desc);
+// status + notes, one per incident; the most recent save wins and is copied to every day-part tab
+const STATUSES = ['Needs review', 'Reviewed', 'Submitted'];
+const noteRec = id => S.notes[String(id)] || null;
+const noteOf = id => (noteRec(id) || {}).note || '';
+const statusOf = id => { const n = noteRec(id); return n && STATUSES.includes(n.status) ? n.status : (n && n.note ? 'Reviewed' : 'Needs review'); };
+const isRegistration = desc => /^er\/him\/nb/i.test(String(desc).trim());
+
+function loadCfg(){
+  let c = S.store.getDoc('irCfg');
+  if (!c){ try { c = JSON.parse(localStorage.getItem('irCfg') || 'null'); } catch { c = null; } }
+  S.cfg = Object.assign({}, DEFAULTS, c || {});
+  for (const k of ['ctrl', 'route', 'providers', 'clinics', 'irDecide', 'rename']) S.cfg[k] = Object.assign({}, S.cfg[k]);
+  S.sent = S.store.getDoc('irSent') || {};
+}
+async function saveCfg(){
+  try { localStorage.setItem('irCfg', JSON.stringify(S.cfg)); } catch {}
+  await S.store.setDoc('irCfg', S.cfg);
+}
+async function markSent(key){ S.sent[key] = new Date().toISOString(); await S.store.setDoc('irSent', S.sent); }
+const sentOn = key => S.sent[key] ? new Date(S.sent[key]) : null;
+const sentFresh = key => { const d = sentOn(key); return d && days(today(), new Date(d.getFullYear(), d.getMonth(), d.getDate())) < 7; };
+
+// ---------- data ----------
+function parse(values, sheet){
+  let hi = findHeader(values, ['incident id', 'description', 'facility']); if (hi < 0) hi = 0;
+  const hdr = (values[hi] || []).map(norm);
+  const at = {}; const missing = [];
+  for (const [k, names] of Object.entries(COLS)){ const i = hdr.findIndex(h => names.includes(h)); if (i >= 0) at[k] = i; }
+  const iSt = hdr.indexOf('status'), iNo = hdr.indexOf('notes');
+  for (const k of NEED) if (at[k] === undefined) missing.push(LABEL[k]);
+  const rows = [];
+  if (!missing.length){
+    for (let r = hi + 1; r < values.length; r++){
+      const v = values[r]; const g = k => at[k] === undefined ? '' : v[at[k]];
+      if (!v.some(x => x !== '' && x !== null)) continue;
+      const raw = String(g('desc') ?? '').trim(); const c = classifyIR(raw);
+      const o = {
+        r, id: String(g('id') ?? '').trim(), last: String(g('last') ?? '').trim(), first: String(g('first') ?? '').trim(), gender: String(g('gender') ?? '').trim(),
+        dob: toDate(g('dob')), raw, desc: (c.outlier ? dispCat(c.key) : c.cat) || '(No description)', org: String(g('org') ?? '').trim(), fac: normLoc(g('fac')),
+        mrn: String(g('mrn') ?? '').trim(), dos: toDate(g('dos')), prov: String(g('prov') ?? '').trim() || '(No provider)', act: g('act'), due: toDate(g('due')), entry: toDate(g('entry')),
+        sheetStatus: iSt >= 0 ? String(v[iSt] ?? '').trim() : '', sheetNote: iNo >= 0 ? String(v[iNo] ?? '').trim() : '',
+      };
+      o.code = codify(o.last, o.first); o.name = [o.last, o.first].filter(Boolean).join(', ');
+      o.age = o.dos ? days(today(), o.dos) : null; o.dueIn = o.due ? days(o.due, today()) : null;
+      rows.push(o);
+    }
+  }
+  return { rows, missing, sheet, found: Object.keys(at).length };
+}
+const ORDER = ['fac', 'prov', 'mrn', 'desc']; // location → provider → MRN → description type
+function cmp(a, b, k){
+  const x = a[k], y = b[k];
+  if (x instanceof Date || y instanceof Date){ return (x ? x.getTime() : Infinity) - (y ? y.getTime() : Infinity); }
+  if (typeof x === 'number' || typeof y === 'number' || x === null || y === null) return (x ?? Infinity) - (y ?? Infinity);
+  if (k === 'mrn' && /^\d+$/.test(x) && /^\d+$/.test(y)) return Number(x) - Number(y);
+  return String(x).localeCompare(String(y), undefined, { sensitivity: 'base', numeric: true });
+}
+function sorted(rows){
+  const keys = S.sort ? [S.sort.k, ...ORDER.filter(k => k !== S.sort.k)] : ORDER; const dir = S.sort ? S.sort.d : 1;
+  return rows.slice().sort((a, b) => { for (let i = 0; i < keys.length; i++){ const c = cmp(a, b, keys[i]) * (i === 0 ? dir : 1); if (c) return c; } return 0; });
+}
+// Worklist clinic picker: { mode: 'all' } or { mode: 'some', list: [...] }, remembered on this computer
+const WL_TABS = ['work', 'sig', 'clinic'];
+function wlSave(){ try { localStorage.setItem('irWlClinics', JSON.stringify(S.wl)); } catch {} }
+const wlOn = () => WL_TABS.includes(S.tab) && !S.loc && S.wl && S.wl.mode === 'some';
+const wlHas = f => !wlOn() || S.wl.list.includes(f);
+const scope = () => S.loc ? S.rows.filter(r => r.fac === S.loc) : wlOn() ? S.rows.filter(r => S.wl.list.includes(r.fac)) : S.rows; // header location, or the Worklist clinic picker
+function wlLabel(){ if (S.loc) return S.loc; if (!wlOn()) return 'All locations'; const l = S.wl.list; return !l.length ? 'No clinics' : l.length <= 3 ? l.join(', ') : `${l.length} clinics`; }
+function wlBar(){
+  const facs = [...groupBy(S.rows.filter(inView), 'fac').entries()].sort((a, b) => byName(a[0], b[0]));
+  if (S.loc) return `<div class="card noprint" style="padding:10px 12px"><div class="row"><b>Clinic:</b><span class="pill" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent)">${esc(S.loc)}</span><span class="small muted">set by the Location picker at the top.</span><button class="linkbtn" data-act="setLoc" data-f="">Pick several clinics instead</button></div></div>`;
+  const all = !S.wl || S.wl.mode === 'all'; const sel = f => all || S.wl.list.includes(f); const nSel = facs.filter(([f]) => sel(f)).length;
+  return `<div class="card noprint" style="padding:10px 12px;border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)">
+    <div class="row" style="margin-bottom:8px"><b style="font-size:15px">Clinics</b><span class="pill ${nSel ? '' : 'bad'}">${all ? 'All ' + facs.length : nSel + ' of ' + facs.length} selected</span><span class="grow"></span>
+      <button class="btn sm" data-act="wlAll" ${all ? 'disabled' : ''}>Select all</button><button class="btn sm" data-act="wlNone" ${!all && !nSel ? 'disabled' : ''}>Deselect all</button></div>
+    <div class="row" role="group" aria-label="Clinics" style="gap:6px">${facs.map(([f, rs]) => { const on = sel(f); return `<button class="clinchip" data-act="wlToggle" data-f="${esc(f)}" aria-pressed="${on}" style="border:1.5px solid ${on ? 'var(--accent)' : 'var(--line)'};background:${on ? 'var(--accent)' : 'var(--surface)'};color:${on ? 'var(--accent-ink)' : 'var(--muted)'};border-radius:999px;padding:6px 12px;min-height:34px;font-weight:700;cursor:pointer">${on ? '✓ ' : ''}${esc(f)} <span style="opacity:.8;font-weight:600">${rs.length}</span></button>`; }).join('')}</div>
+    ${!all && !nSel ? '<div class="small badText" style="margin-top:6px">No clinics selected. Pick at least one to see items.</div>' : ''}</div>`;
+}
+const viewRows = () => scope().filter(inView);
+const ctrlRows = () => viewRows().filter(r => statusOf(r.id) !== 'Submitted'); // outreach lists skip submitted items
+function setLoc(v){ S.loc = v; try { localStorage.setItem('irLoc', v); } catch {} S.f.fac = ''; render(); window.scrollTo(0, 0); }
+const sentKey = (kind, name) => kind + ':' + name + (kind === 'p' && S.loc ? '|' + S.loc : '');
+const groupBy = (rows, k) => { const m = new Map(); for (const r of rows){ if (!m.has(r[k])) m.set(r[k], []); m.get(r[k]).push(r); } return m; };
+const byName = (a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
+
+// ---------- stores ----------
+function OfficeStore(){
+  return {
+    live: true,
+    async load(sheet){
+      const names = await Excel.run(async ctx => { const wss = ctx.workbook.worksheets; wss.load('items/name'); await ctx.sync(); return wss.items.map(w => w.name); });
+      const pick = names.find(n => n === sheet) || names.find(n => norm(n) === norm(sheet));
+      if (!pick) return { values: null, sheets: names, sheet };
+      return { values: await this.readSheet(pick), sheets: names, sheet: pick };
+    },
+    getDoc(k){ try { return Office.context.document.settings.get(k); } catch { return null; } },
+    setDoc(k, v){ return new Promise(res => { try { Office.context.document.settings.set(k, v); Office.context.document.settings.saveAsync(() => res()); } catch { res(); } }); },
+    // every tab's name, row count and first rows (to recognise IR / ER exports)
+    async sheetsInfo(){
+      return Excel.run(async ctx => {
+        const wss = ctx.workbook.worksheets; wss.load('items/name'); await ctx.sync();
+        const urs = wss.items.map(ws => { const u = ws.getUsedRangeOrNullObject(true); u.load('rowCount,columnCount,rowIndex,columnIndex'); return u; }); await ctx.sync();
+        const tops = wss.items.map((ws, i) => { const u = urs[i]; if (u.isNullObject) return null; const r = ws.getRangeByIndexes(u.rowIndex, u.columnIndex, Math.min(8, u.rowCount), Math.min(80, u.columnCount)); r.load('values'); return r; }); await ctx.sync();
+        return wss.items.map((ws, i) => ({ name: ws.name, rows: urs[i].isNullObject ? 0 : urs[i].rowCount, top: tops[i] ? tops[i].values : [] }));
+      });
+    },
+    // whole used range, read in chunks so big exports stay under Excel's request size limit
+    async readSheet(name){
+      return Excel.run(async ctx => {
+        const ws = ctx.workbook.worksheets.getItem(name); const u = ws.getUsedRangeOrNullObject(true); u.load('rowCount,columnCount,rowIndex,columnIndex'); await ctx.sync();
+        if (u.isNullObject) return [];
+        // always from A1, so row/column positions match the sheet
+        const nr = u.rowIndex + u.rowCount, nc = u.columnIndex + u.columnCount;
+        const out = []; const step = Math.max(200, Math.floor(90000 / nc));
+        for (let r = 0; r < nr; r += step){ const rg = ws.getRangeByIndexes(r, 0, Math.min(step, nr - r), nc); rg.load('values'); await ctx.sync(); for (const row of rg.values) out.push(row); }
+        return out;
+      });
+    },
+    async writeCells(sheet, cells, checks){
+      return Excel.run(async ctx => {
+        const ws = ctx.workbook.worksheets.getItem(sheet);
+        const ck = (checks || []).map(c => { const r = ws.getCell(c.r, c.c); r.load('values'); return [r, c.v]; }); await ctx.sync();
+        for (const [r, v] of ck) if (String(r.values[0][0]).trim() !== String(v).trim()) return false; // rows moved: caller re-indexes
+        for (const c of cells) ws.getCell(c.r, c.c).values = [[c.v]];
+        await ctx.sync(); return true;
+      });
+    },
+    async refreshPivots(){ return Excel.run(async ctx => { ctx.workbook.pivotTables.refreshAll(); await ctx.sync(); }); },
+    async insertCols(sheet, n){ return Excel.run(async ctx => { ctx.workbook.worksheets.getItem(sheet).getRange('A:' + String.fromCharCode(64 + n)).insert(Excel.InsertShiftDirection.right); await ctx.sync(); }); },
+    async removeSheets(names){
+      return Excel.run(async ctx => { const its = names.map(n => ctx.workbook.worksheets.getItemOrNullObject(n)); await ctx.sync(); its.forEach(w => { if (!w.isNullObject) w.delete(); }); await ctx.sync(); });
+    },
+    async writeSheet(name, values, opts = {}){
+      return Excel.run(async ctx => {
+        const old = ctx.workbook.worksheets.getItemOrNullObject(name); await ctx.sync(); if (!old.isNullObject){ old.delete(); await ctx.sync(); }
+        const ws = ctx.workbook.worksheets.add(name); const c0 = opts.col || 0; const w = values[0].length; const step = Math.max(200, Math.floor(60000 / w));
+        for (let r = 0; r < values.length; r += step){ const part = values.slice(r, r + step); ws.getRangeByIndexes(r, c0, part.length, w).values = part; await ctx.sync(); }
+        if (values.length > 1) for (const c of opts.dateCols || []) ws.getRangeByIndexes(1, c0 + c, values.length - 1, 1).numberFormat = Array.from({ length: values.length - 1 }, () => ['m/d/yyyy']);
+        if (opts.table){ const t = ws.tables.add(ws.getRangeByIndexes(0, c0, Math.max(2, values.length), w), true); t.name = opts.table; t.style = 'TableStyleLight9'; }
+        else ws.getRangeByIndexes(0, c0, 1, w).format.font.bold = true;
+        ws.freezePanes.freezeRows(1);
+        ws.getRangeByIndexes(0, c0, Math.min(values.length, 400), w).format.autofitColumns();
+        await ctx.sync();
+      });
+    },
+    async buildPivots(sheet, specs){
+      if (!Office.context.requirements.isSetSupported('ExcelApi', '1.8')) throw new Error('PivotTables need a newer Excel');
+      return Excel.run(async ctx => {
+        const old = ctx.workbook.worksheets.getItemOrNullObject(sheet); await ctx.sync(); if (!old.isNullObject){ old.delete(); await ctx.sync(); }
+        const ws = ctx.workbook.worksheets.add(sheet); await ctx.sync();
+        for (const sp of specs){
+          const pt = ws.pivotTables.add(sp.name, ctx.workbook.tables.getItem(sp.table), ws.getRange(sp.at));
+          for (const f of sp.rows) pt.rowHierarchies.add(pt.hierarchies.getItem(f));
+          for (const f of sp.cols || []) pt.columnHierarchies.add(pt.hierarchies.getItem(f));
+          const dh = pt.dataHierarchies.add(pt.hierarchies.getItem(sp.value)); dh.summarizeBy = Excel.AggregationFunction.count;
+          await ctx.sync();
+          try { dh.name = sp.valueName; await ctx.sync(); } catch {}
+          if (sp.sortDesc){ try { pt.rowHierarchies.getItem(sp.rows[0]).fields.getItem(sp.rows[0]).sortByValues(Excel.SortBy.descending, dh); await ctx.sync(); } catch {} }
+        }
+      });
+    },
+    async activate(name){ return Excel.run(async ctx => { const w = ctx.workbook.worksheets.getItemOrNullObject(name); await ctx.sync(); if (!w.isNullObject){ w.activate(); await ctx.sync(); } }); },
+    watch(cb){
+      Excel.run(async ctx => { ctx.workbook.worksheets.onChanged.add(() => { cb(); return Promise.resolve(); }); await ctx.sync(); }).catch(() => {});
+    },
+  };
+}
+
+// demo-only raw exports (made-up data)
+const DEMO_FAC = ['07SRO - San Rafael Office','07SRTH - San Rafael Telehealth','07CSO - Castro Street Office','07CSTH - Castro Street Telehealth','07PO - Post Office','07PTH - Post Telehealth','07OLO - Oakland Office','07OLTH - Oakland Telehealth','07SNTH - Stockton Telehealth','07SMO - Santa Monica Office','07HTH - Houston Telehealth','07TO - Tacoma Office','07FTH - Fairfield Telehealth','07WCO - Walnut Creek Office','07SKO - Sacramento IV Ketamine Office'];
+const DEMO_DESC = [['ER/HIM/NB/Authorization Missing - Auth on file is expired for DOS', 34],['ER/HIM/NB/Authorization Missing- Auth on file is not valid', 16],['ER/HIM/NB/Auth Missing-Charge denied for excess# of treatment', 8],['ER/HIM/NB/Missing Demo/Verify Insurance - Checked NG, insurance on file inactive', 12],['ER/HIM/NB/Missing Demo/Verify Insurance– "Cigna" Denied claim for member not found', 3],['ER/HIM/NB/Missing/Incomplete Chart', 8],['ER/HIM/NB/Missing / Incomplete Chart', 3],['ER/HIM/NB/Missing/Incomplete Chart/Missing Nurse Infusion Note', 2],['ER/HIM/NB/Missing/Incomplete Chart/Missing TMS treatment report', 3],['ER/HIM/NB/Missing/Incomplete Chart/BH Master not signed', 2],['ER/HIM/NB/Missing Provider Signature', 7],['ER/HIM/NB/Provider Out of Network-  Payor "OSCAR" has denied for out of network', 1],['ER/HIM/NB/Missing / Non-Covered Dx ICD10 is NC. Pls review', 1],['ER/HIM/NB/Missing Insurance-Please provide Medicare policy ID', 1],['ER/HIM/NB/Missing Supervising Physician-Tricare East doesnt allow NP', 1]];
+const DEMO_PROV = ['RIVERA JORDAN','CHEN AVERY','OKAFOR SAM','LINDQVIST TAYLOR','PATEL MORGAN','BROOKS CASEY'];
+const DEMO_LAST = ['HARPER','NGUYEN','SILVA','KOWALSKI','BENNETT','MOREAU','TANAKA','OSEI','RAMIREZ','FISCHER'], DEMO_FIRST = ['ALEX','JAMIE','RILEY','DREW','ROWAN','SKYLER','QUINN','EMERSON'];
+function demoIrRaw(rnd, t, serial){
+  const pool = []; DEMO_DESC.forEach(([d, w]) => { for (let i = 0; i < w; i++) pool.push(d); });
+  const v = [['', '', 'Incident ID','Last Name','First Name','Gender','DOB','Description','Prov Org','Facility','MRN','DOS','Provider','Last Activity','Due Date','Entry Date']];
+  for (let i = 0; i < 320; i++){ const dos = new Date(t); dos.setDate(t.getDate() - 5 - rnd(50)); const due = new Date(t); due.setDate(t.getDate() - 10 + rnd(20)); const entry = new Date(dos); entry.setDate(dos.getDate() + 4);
+    v.push(['', '', i % 40 === 1 ? 190000 + (i - 1) * 7 : 190000 + i * 7, DEMO_LAST[rnd(10)], DEMO_FIRST[rnd(8)], ['F','M'][rnd(2)], serial(new Date(1955 + rnd(50), rnd(12), 1 + rnd(27))), pool[rnd(pool.length)], 'MHSCA', DEMO_FAC[rnd(DEMO_FAC.length)], String(140000 + rnd(9000)), serial(dos), DEMO_PROV[rnd(6)], '', serial(due), serial(entry)]); }
+  return v;
+}
+function demoEr(rnd, t, serial){
+  const cats = ['Auth Missing/Expired','Auth Missing/Expired','Auth Missing/Expired','Missing Demo',' Incomplete Chart','Provider Signature Missing','Non Covered Diagnosis'];
+  const cpts = ['99214,90833','90833,99214','90792','90868,90868','96365','G2083,S0013','99213','','90791','99215,90836'];
+  const st = ['Open','Open','Closed','Closed','Closed'];
+  const v = [['Facility','IncidentID','MRN','DOS','EntryDt','ProviderName','ERStatus','Note Category','LongDescription','PlanName','FinancialClass','CPTCode']];
+  for (let i = 0; i < 600; i++){ const dos = new Date(t); dos.setDate(t.getDate() - 10 - rnd(330)); const fac = DEMO_FAC[rnd(DEMO_FAC.length)].replace(/^\S+ - /, '');
+    v.push([fac, 50000 + i * 11, String(100000 + rnd(50000)), serial(dos), serial(new Date(dos.getTime() + 20 * 864e5)), DEMO_PROV[rnd(6)].replace(' ', ', '), st[rnd(st.length)], cats[rnd(cats.length)], 'ER/HIM/NB/Authorization Missing - Auth on file is expired', ['AETNA MC','KAISER FOUNDATION NORTHERN CA MC','OPTUM MEDICARE ADVANTAGE'][rnd(3)], ['MANAGED CARE','MEDICARE','BCBS'][rnd(3)], cpts[rnd(cpts.length)]]); }
+  return v;
+}
+function DemoStore(){
+  const docs = {};
+  const F = ['San Rafael','Post','Santa Monica','Stockton','Oakland','Tacoma','Houston','Castro Street','Fairfield','Walnut Creek'];
+  const P = ['Rivera, Jordan MD','Chen, Avery NP','Okafor, Sam PMHNP','Lindqvist, Taylor MD','Patel, Morgan DO','Brooks, Casey NP'];
+  const D = [['Missing Signature', 9],['Incomplete Chart', 6],['ER/HIM/NB/Missing Demo', 7],['ER/HIM/NB/Missing Insurance', 1],['ER/HIM/NB/Provider Out of Network', 1],['ER/HIM/NB/Missing / Non-Covered Dx', 1],['Missing Treatment Report', 2]];
+  const L = ['Harper','Nguyen','Silva','Kowalski','Bennett','Moreau','Tanaka','Osei','Ramirez','Fischer','Delgado','Ibsen','Quinn','Abara','Varga','Holloway'];
+  const Fi = ['Alex','Jamie','Riley','Drew','Rowan','Skyler','Quinn','Emerson','Parker','Sage','Reese','Kai'];
+  let seed = 7; const rnd = n => { seed = (seed * 9301 + 49297) % 233280; return Math.floor(seed / 233280 * n); };
+  const t = today(); const serial = d => Math.round((d - new Date(1899, 11, 30)) / 864e5);
+  const pool = []; D.forEach(([d, w]) => { for (let i = 0; i < w; i++) pool.push(d); });
+  const values = [['', '', 'Incident ID','Last Name','First Name','Gender','DOB','Description','Prov Org','Facility','MRN','DOS','Provider','Last Activity','Due Date','Entry Date']];
+  for (let i = 0; i < 64; i++){
+    const fac = F[Math.min(F.length - 1, Math.floor(Math.pow(rnd(1000) / 1000, 1.6) * F.length))];
+    const dos = new Date(t); dos.setDate(t.getDate() - 3 - rnd(60)); const entry = new Date(dos); entry.setDate(dos.getDate() + 2);
+    const due = new Date(entry); due.setDate(entry.getDate() + 30 - rnd(10)); const act = new Date(t); act.setDate(t.getDate() - rnd(10));
+    values.push(['', '', String(880000 + i * 37), L[rnd(L.length)], Fi[rnd(Fi.length)], ['F','M','X'][rnd(3)], serial(new Date(1960 + rnd(45), rnd(12), 1 + rnd(27))), pool[rnd(pool.length)], fac === 'Post' ? 'MHS Post' : 'Mindful Health Solutions', fac, String(100200 + rnd(400)), serial(dos), P[rnd(P.length)], serial(act), serial(due), serial(entry)]);
+  }
+  const book = new Map();
+  book.set('Main Sheet', demoIrRaw(rnd, t, serial));
+  book.set('Export', demoEr(rnd, t, serial));
+  const copy = v => v.map(r => r.slice());
+  return {
+    demo: true,
+    async load(sheet){ const n = [...book.keys()].find(k => norm(k) === norm(sheet)); return { values: n ? copy(book.get(n)) : null, sheets: [...book.keys()], sheet: n || sheet }; },
+    getDoc: k => docs[k] ?? null, async setDoc(k, v){ docs[k] = JSON.parse(JSON.stringify(v)); }, watch(){},
+    async sheetsInfo(){ return [...book.entries()].map(([name, v]) => ({ name, rows: v.length, top: v.slice(0, 8) })); },
+    async readSheet(n){ return copy(book.get(n) || []); },
+    async removeSheets(ns){ ns.forEach(n => book.delete(n)); },
+    async writeCells(n, cells, checks){ const v = book.get(n); for (const c of checks || []) if (String(v[c.r][c.c]).trim() !== String(c.v)) return false; for (const c of cells){ while (v[c.r].length <= c.c) v[c.r].push(''); v[c.r][c.c] = c.v; } return true; },
+    async refreshPivots(){},
+    async insertCols(n, k){ book.set(n, book.get(n).map(r => [...Array(k).fill(''), ...r])); },
+    async writeSheet(n, v, o = {}){ book.set(n, v.map(r => [...Array(o.col || 0).fill(''), ...r])); },
+    async buildPivots(n, specs){ book.set(n, [['(PivotTables: ' + specs.map(x => x.name).join(', ') + ')']]); },
+    async activate(){},
+  };
+}
+
+async function reload(quiet){
+  if (!quiet) busy(true);
+  try {
+    if (!S.cfg) loadCfg();
+    try { await scanSources(); } catch (e){ console.error(e); }
+    const auto = !S.cfg.sheet || ['auto', 'filtered'].includes(norm(S.cfg.sheet));
+    const latest = S.rep && (S.rep.ir.EOD || S.rep.ir.Midday || S.rep.ir.AM);
+    const d = await S.store.load(auto ? (latest ? latest.sheet : 'Filtered') : S.cfg.sheet);
+    if (S.store.remote) loadCfg(); // full-screen window: use the panel's saved settings
+    S.notes = Object.assign({}, S.store.getDoc('irNotes') || {});
+    S.sheets = d.sheets || [];
+    if (!d.values){ S.loadErr = auto ? 'There\'s no IR Portal export or Filtered tab in this workbook yet.' : `There's no tab named "${S.cfg.sheet}" in this workbook.`; S.rows = []; S.missing = []; }
+    else { const p = parse(d.values, d.sheet); S.rows = p.rows; S.missing = p.missing;
+      for (const r of S.rows) if (r.id && !S.notes[r.id] && (r.sheetNote || STATUSES.includes(r.sheetStatus))) S.notes[r.id] = { note: r.sheetNote, status: STATUSES.includes(r.sheetStatus) ? r.sheetStatus : '', at: null }; // typed straight into A/B
+      S.loadErr = p.missing.length ? `The "${d.sheet}" tab is missing these headers: ${p.missing.join(', ')}.` : ''; S.sheetName = d.sheet; }
+    if ((S.cfg.dir || []).length && S.rows.some(r => r.prov && !(S.cfg.providers[r.prov] || {}).dirNote && !(S.cfg.providers[r.prov] || {}).dirName)){ applyDirectory(); try { await saveCfg(); } catch {} }
+    S.loadedAt = new Date();
+  } catch (e){ S.loadErr = e.message || String(e); }
+  finally { busy(false); render(); }
+}
+
+// ---------- views ----------
+function header(){
+  const sig = ctrlRows().filter(r => routeOf(r.desc) === 'provider');
+  const sigOpen = [...groupBy(sig, 'prov').keys()].filter(p => !sentFresh(sentKey('p', p))).length;
+  const clin = ctrlRows().filter(r => routeOf(r.desc) === 'clinic');
+  const clinOpen = [...groupBy(clin, 'fac').keys()].filter(f => !sentFresh('c:' + f)).length;
+  const tabs = [['dash', 'Clinic Dashboard', ''], ['rep', 'Reports', ''], ['work', 'Worklist', sigOpen + clinOpen ? `<span class="badge">${sigOpen + clinOpen}</span>` : '']];
+  S._wbadges = { sig: sigOpen, clinic: clinOpen };
+  return `<header class="top">${S.store.demo ? '<div class="demo-ribbon">Demo data: made-up patients and providers. Nothing here touches a workbook.</div>' : ''}
+    <div class="bar"><div class="brand"><span class="dot">IR</span>IR Portal Tracker <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small></div>
+      <button class="iconbtn" data-act="theme" title="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}">${isDark() ? ICON_SUN : ICON_MOON}</button>
+      <button class="iconbtn" data-act="refresh" title="Re-read the workbook" aria-label="Refresh">${ICON_REFRESH}</button>
+      <button class="iconbtn" data-act="tab" data-v="set" title="Settings" aria-label="Settings" aria-pressed="${S.tab === 'set'}">${ICON_GEAR}</button>
+      ${S.canFull && S.mode === 'pane' ? '<button class="iconbtn" data-act="full" title="Open full screen" aria-label="Full screen">⤢</button>' : ''}
+      ${S.mode === 'dialog' ? '<button class="iconbtn" data-act="closeFull" title="Back to Excel">✕ Close</button>' : ''}</div>
+    <div class="bar wrap" style="padding-top:0"><label for="locSel" class="small muted" style="font-weight:700">Location</label>
+      <select class="fld" id="locSel" style="width:auto;min-width:200px;max-width:100%;min-height:34px;padding:4px 10px;font-weight:700">
+        <option value="">All locations (${S.rows.filter(inView).length})</option>${locList().map(([f, n]) => `<option value="${esc(f)}" ${f === S.loc ? 'selected' : ''}>${esc(f)} (${n})</option>`).join('')}</select>
+      <label class="chk small" style="margin-left:6px"><input type="checkbox" id="allTypesChk" ${S.allTypes ? 'checked' : ''}> All types (include authorization)</label></div>
+    <nav class="tabs">${tabs.map(([k, l, b]) => `<button data-act="tab" data-v="${k}" ${S.tab === k || (k === 'work' && ['sig', 'clinic'].includes(S.tab)) ? 'aria-current="page"' : ''}>${l}${b}</button>`).join('')}</nav></header>`;
+}
+function locList(){ return [...groupBy(S.rows.filter(inView), 'fac').entries()].map(([f, rs]) => [f, rs.length]).sort((a, b) => byName(a[0], b[0])); }
+function render(){
+  if (S.loc && S.rows.length && !S.rows.some(r => r.fac === S.loc)) S.loc = ''; // location no longer on the tab
+  if (!S.store) return;
+  const hdr = header(); const inWork = ['work', 'sig', 'clinic'].includes(S.tab);
+  const wsub = inWork ? `<div class="subnav noprint">${[['work', 'Items'], ['sig', 'Signature reminders'], ['clinic', 'Clinic routing']].map(([k, l]) => `<button data-act="tab" data-v="${k}" aria-pressed="${S.tab === k}">${l}${S._wbadges && S._wbadges[k] ? ` <span class="badge">${S._wbadges[k]}</span>` : ''}</button>`).join('')}</div>` : '';
+  const body = S.loadErr && !['set', 'rep'].includes(S.tab) ? errHTML() : wsub + (inWork ? wlBar() : '') + ({ dash: dashHTML, rep: repHTML, work: workHTML, sig: sigHTML, clinic: clinicHTML, set: setHTML }[S.tab])();
+  $('#app').innerHTML = hdr + `<main>${body}</main>`;
+}
+function errHTML(){
+  return `<div class="card"><h2>Can't read the data</h2><div class="msg bad">${esc(S.loadErr)}</div>
+    <div class="small muted">The tracker reads the tab named in Settings and expects the headers in row 1 (columns can start in C).</div>
+    ${S.sheets?.length ? `<label class="lbl" for="pickSheet">Read a different tab</label><div class="row"><select class="fld" id="pickSheet" style="max-width:320px">${S.sheets.map(n => `<option ${n === S.cfg.sheet ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select><button class="btn primary" data-act="useSheet">Use this tab</button></div>` : ''}
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="refresh">Try again</button><button class="btn primary" data-act="tab" data-v="rep">Go to Reports</button></div></div>`;
+}
+
+// keyword highlights matched against the original portal description, whatever its category
+const FOCUS_KW_DEFAULT = [{ label: 'Tx report', words: 'tx report, treatment report, tx rpt' }, { label: 'Infusion note', words: 'infusion' }, { label: 'BH Master', words: 'bh master, bhmaster' }];
+const focusKw = () => (S.cfg && S.cfg.focusKw) || FOCUS_KW_DEFAULT;
+function focusOf(r){ const t = norm(r.raw || r.desc).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' '); return focusKw().filter(f => String(f.words).split(',').map(w => norm(w).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).some(w => (' ' + t + ' ').includes(' ' + w + ' ') || t.includes(w))).map(f => f.label); }
+const hasFocus = (r, label) => focusOf(r).includes(label);
+const focusPills = r => focusOf(r).map(l => `<span class="pill" style="background:#efe1fb;color:#5b3aa8;border-color:transparent;margin:2px 4px 0 0">★ ${esc(l)}</span>`).join('');
+const FOCUS0 = ['Incomplete Chart', 'Missing Signature', 'ER/HIM/NB/Missing Demo'];
+const FOCUS_LABEL0 = { 'Incomplete Chart': 'Incomplete Chart', 'Missing Signature': 'Missing Signature', 'ER/HIM/NB/Missing Demo': 'Missing Demo' };
+let FOCUS = FOCUS0, FOCUS_LABEL = FOCUS_LABEL0;
+function focusSync(){ FOCUS = FOCUS0.map(dispCat); FOCUS_LABEL = Object.fromEntries(FOCUS0.map(f => [dispCat(f), dispCat(f) === f ? FOCUS_LABEL0[f] : dispCat(f)])); }
+function progress(rows){
+  const n = { total: rows.length, 'Needs review': 0, Reviewed: 0, Submitted: 0 };
+  for (const r of rows) n[statusOf(r.id)]++;
+  n.remaining = n['Needs review']; n.done = n.Reviewed + n.Submitted; n.pct = n.total ? Math.round(n.done / n.total * 100) : 0; return n;
+}
+function progBar(p){
+  const w = x => p.total ? (x / p.total * 100).toFixed(1) : 0;
+  return `<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surface2);margin:6px 0" role="img" aria-label="${p.Submitted} submitted, ${p.Reviewed} reviewed, ${p.remaining} remaining">
+    <div style="width:${w(p.Submitted)}%;background:var(--ok)"></div><div style="width:${w(p.Reviewed)}%;background:var(--info)"></div></div>
+    <div class="row small"><span><b style="color:var(--ok)">■</b> Submitted ${p.Submitted}</span><span><b style="color:var(--info)">■</b> Reviewed ${p.Reviewed}</span><span><b style="color:var(--muted)">■</b> Remaining ${p.remaining}</span><span class="grow"></span><b>${p.pct}% worked</b></div>`;
+}
+function dashHTML(){
+  focusSync(); const IC = dispCat('Incomplete Chart'), MS = dispCat('Missing Signature');
+  const all = viewRows(); const title = S.loc ? esc(S.loc) : 'All locations';
+  const cnt = d => all.filter(r => r.desc === d).length; const p = progress(all);
+  const past = all.filter(r => statusOf(r.id) === 'Needs review' && r.dueIn !== null && r.dueIn < 0).length;
+  const kpi = (n, l, cls, act, v, sub) => `<button class="kpi ${cls}" data-act="${act}" data-v="${esc(v || '')}"><div class="n">${n}</div><div class="l">${l}</div>${sub ? `<div class="small muted">${sub}</div>` : ''}</button>`;
+  const descs = [...groupBy(all, 'desc').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
+  const progTable = `<div class="tblwrap" style="border:0"><table class="mini"><thead><tr><th>Description</th><th style="text-align:right">Items</th><th style="text-align:right">Reviewed</th><th style="text-align:right">Submitted</th><th style="text-align:right">Remaining</th></tr></thead><tbody>
+    ${descs.map(([d, rs]) => { const q = progress(rs); return `<tr class="${isCtrl(d) ? '' : 'muted'}"><td><button class="linkbtn" style="color:inherit;font-weight:${FOCUS.includes(d) ? 700 : 500};text-align:left" data-act="drill" data-desc="${esc(d)}">${esc(d)}</button><button class="linkbtn" style="padding:0 4px" data-act="renameCat" data-c="${esc(d)}" title="Rename" aria-label="Rename ${esc(d)}">✎</button></td><td style="text-align:right">${q.total}</td><td style="text-align:right">${q.Reviewed}</td><td style="text-align:right">${q.Submitted}</td><td style="text-align:right;font-weight:700">${q.remaining}</td></tr>`; }).join('')}
+    <tr style="font-weight:700"><td>Total</td><td style="text-align:right">${p.total}</td><td style="text-align:right">${p.Reviewed}</td><td style="text-align:right">${p.Submitted}</td><td style="text-align:right">${p.remaining}</td></tr></tbody></table></div>`;
+  let right;
+  if (!S.loc){
+    const facs = [...groupBy(all, 'fac').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
+    const MD = dispCat('ER/HIM/NB/Missing Demo'); const known = [IC, MS, MD];
+    const cols = [[IC, r => r.desc === IC], [MS, r => r.desc === MS], [MD === 'ER/HIM/NB/Missing Demo' ? 'Missing Demo' : MD, r => r.desc === MD], ['Other', r => !known.includes(r.desc)]];
+    const dot = n => n || '<span class="muted">·</span>';
+    right = `<div class="card"><h2>By clinic<span class="sp"></span><span class="small muted">click a clinic to view it</span></h2><div class="tblwrap"><table class="mini" style="margin:0"><thead><tr><th>Clinic</th>${cols.map(([l]) => `<th style="text-align:right">${esc(l)}</th>`).join('')}<th style="text-align:right">Items</th><th style="text-align:right">Remaining</th></tr></thead><tbody>
+      ${facs.map(([f, rs]) => { const q = progress(rs); return `<tr><td><button class="linkbtn" style="text-align:left" data-act="setLoc" data-f="${esc(f)}">${esc(f)}</button></td>${cols.map(([, fn]) => `<td style="text-align:right">${dot(rs.filter(fn).length)}</td>`).join('')}<td style="text-align:right;font-weight:700">${rs.length}</td><td style="text-align:right">${q.remaining}</td></tr>`; }).join('') || '<tr><td colspan="7" class="empty">No rows.</td></tr>'}</tbody></table></div></div>`;
+  } else {
+    const inc = incidents(all.filter(r => statusOf(r.id) === 'Needs review')).sort((a, b) => (a.first.due ? a.first.due.getTime() : Infinity) - (b.first.due ? b.first.due.getTime() : Infinity)).slice(0, 12);
+    right = `<div class="card"><h2>Next to review<span class="sp"></span><button class="linkbtn" data-act="workStatus" data-v="Needs review">See all ${p.remaining} →</button></h2>
+      ${inc.length ? inc.map(incCard).join('') : '<div class="empty">Nothing left to review here.</div>'}</div>`;
+  }
+  return `<div class="kpis">
+      ${kpi(p.total, `Items · ${title}`, '', 'tab', 'work', S.allTypes ? 'all types' : 'controllable')}
+      ${(() => { const fr = all.filter(r => focusOf(r).length); const q = progress(fr); return kpi(fr.length, 'Focus items', fr.length ? 'info' : '', 'drillFocus', '*', `${focusKw().map(f => `${esc(f.label)} ${all.filter(r => hasFocus(r, f.label)).length}`).join(' · ')}${fr.length ? ` · ${q.remaining} remaining` : ''}`); })()}
+      ${kpi(cnt(MS), esc(MS), 'info', 'drillDesc', MS, `${progress(all.filter(r => r.desc === MS)).remaining} remaining`)}
+      ${kpi(p.remaining, 'Remaining', p.remaining ? 'warn' : '', 'workStatus', 'Needs review', `${p.Reviewed} reviewed · ${p.Submitted} submitted`)}
+      ${kpi(past, 'Past due, not reviewed', past ? 'bad' : '', 'dueFilter', 'past')}
+      ${kpi(cnt(IC), esc(IC), '', 'drillDesc', IC)}
+    </div>
+    <div class="cols"><div>
+      <div class="card"><h2>Work list progress<span class="sp"></span><span class="small muted">${title}</span></h2>${progBar(p)}${progTable}
+        <div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="progEmail">Progress recap email</button><span class="small muted">Remaining = items − reviewed − submitted.</span></div></div>
+    </div><div>${right}</div></div>`;
+}
+function focusTable(rows){
+  const groups = [...focusKw().map(f => ['★ ' + f.label, rows.filter(r => hasFocus(r, f.label)), 'drillFocus', f.label]), [dispCat('Missing Signature'), rows.filter(r => r.desc === dispCat('Missing Signature')), 'drillDesc', dispCat('Missing Signature')]];
+  return `<table class="mini" style="margin-bottom:10px"><thead><tr><th>Focus</th><th style="text-align:right">Items</th><th style="text-align:right">Reviewed</th><th style="text-align:right">Submitted</th><th style="text-align:right">Remaining</th></tr></thead><tbody>
+    ${groups.map(([l, rs, act, v]) => { const q = progress(rs); return `<tr style="background:#f7f0fd"><td><button class="linkbtn" style="color:#5b3aa8;text-align:left" data-act="${act}" data-v="${esc(v)}">${esc(l)}</button></td><td style="text-align:right">${q.total}</td><td style="text-align:right">${q.Reviewed}</td><td style="text-align:right">${q.Submitted}</td><td style="text-align:right;font-weight:700">${q.remaining}</td></tr>`; }).join('')}</tbody></table>`;
+}
+function incCard(g){
+  const r = g.first; const st = statusOf(g.id);
+  return `<div class="srow" style="cursor:pointer" data-act="inc" data-id="${esc(g.id)}" role="button" tabindex="0"><div class="row" style="gap:6px"><span class="name">${esc(S.cfg.codify ? r.code : r.name) || '—'}</span><span class="meta">MRN ${esc(r.mrn)} · DOS ${fmtD(r.dos)}${r.due ? ' · due <span class="' + (r.dueIn < 0 ? 'due-bad' : '') + '">' + fmtD(r.due) + '</span>' : ''}</span><span class="grow"></span>${statusPill(st)}</div>
+    <div class="line small">${g.descs.map(d => `<span class="pill" style="margin:2px 4px 0 0">${esc(d)}</span>`).join('')}<span class="muted">${esc(r.prov)}</span></div>${noteOf(g.id) ? `<div class="line small" style="white-space:pre-wrap">📝 ${esc(noteOf(g.id))}</div>` : ''}</div>`;
+}
+const statusPill = st => `<span class="pill ${st === 'Submitted' ? 'ok' : st === 'Reviewed' ? 'info' : 'warn'}">${esc(st)}</span>`;
+// one entry per incident; an incident with several rows/descriptions shows them together
+function incidents(rows){
+  const m = new Map();
+  for (const r of rows){ const k = r.id || ('row' + r.r); if (!m.has(k)) m.set(k, { id: r.id || k, rows: [] }); m.get(k).rows.push(r); }
+  return [...m.values()].map(g => Object.assign(g, { first: g.rows[0], descs: [...new Set(g.rows.map(x => x.desc))] }));
+}
+
+function filtered(){
+  const f = S.f; const q = norm(f.q);
+  return scope().filter(r => (inView(r) || (f.desc && r.desc === f.desc)) && (!f.fac || r.fac === f.fac) && (!f.prov || r.prov === f.prov) && (!f.desc || r.desc === f.desc)
+    && (!f.st || statusOf(r.id) === f.st) && (!f.fk || (f.fk === '*' ? focusOf(r).length > 0 : hasFocus(r, f.fk)))
+    && (!f.due || (f.due === 'past' ? r.dueIn !== null && r.dueIn < 0 : r.dueIn !== null && r.dueIn >= 0 && r.dueIn <= 7))
+    && (!q || [r.id, r.name, r.code, r.mrn, r.desc, r.raw, r.fac, r.prov, r.org, noteOf(r.id)].some(x => norm(x).includes(q))));
+}
+function workHTML(){
+  const rows = sorted(filtered().map(r => Object.assign(r, { status: statusOf(r.id) })));
+  const inc = incidents(rows);
+  const opts = (k, cur) => [...new Set(scope().filter(inView).map(r => r[k]))].sort(byName).map(v => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  const th = (k, l) => { const on = S.sort && S.sort.k === k; return `<th><button data-act="sort" data-v="${k}" ${on ? `aria-sort="${S.sort.d > 0 ? 'ascending' : 'descending'}"` : ''}>${l}${on ? (S.sort.d > 0 ? ' ▲' : ' ▼') : ''}</button></th>`; };
+  const groupKey = S.sort ? S.sort.k : 'fac'; let last = null;
+  const body = inc.map(g => {
+    const r = g.first; let h = '';
+    if (['fac', 'prov', 'desc', 'status'].includes(groupKey) && r[groupKey] !== last){ last = r[groupKey]; const n = inc.filter(x => x.first[groupKey] === last).length; h = `<tr class="grp"><td colspan="10">${esc(last)} <span class="muted small">· ${n}</span></td></tr>`; }
+    const st = statusOf(g.id), note = noteOf(g.id), due = g.rows.reduce((m, x) => x.due && (!m || x.due < m) ? x.due : m, null);
+    return h + `<tr class="${g.rows.some(x => isCtrl(x.desc)) ? '' : 'nc'}" data-act="inc" data-id="${esc(g.id)}" style="cursor:pointer">
+      <td data-l="Status" onclick="event.stopPropagation()"><select class="fld" data-stat="${esc(g.id)}" aria-label="Status" style="min-height:30px;padding:3px 6px;width:auto">${STATUSES.map(x => `<option ${x === st ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
+      <td data-l="Clinic">${esc(r.fac)}</td><td data-l="Provider">${esc(r.prov)}</td><td data-l="MRN">${esc(r.mrn)}</td><td data-l="Patient">${esc(S.cfg.codify ? r.code : r.name)}</td>
+      <td data-l="Description">${g.rows.map(x => `<div>${esc(x.desc)}</div>`).join('')}${g.rows.length > 1 ? `<span class="pill" style="margin-top:2px">${g.rows.length} items</span>` : ''}</td>
+      <td data-l="DOS">${fmtD(r.dos)}</td><td data-l="Due" class="${due && days(due, today()) < 0 ? 'due-bad' : due && days(due, today()) <= 7 ? 'due-warn' : ''}">${fmtD(due)}</td>
+      <td data-l="Notes" style="max-width:260px">${note ? `<span style="white-space:pre-wrap">${esc(note.length > 90 ? note.slice(0, 90) + '…' : note)}</span>` : '<span class="muted small">+ add note</span>'}</td><td data-l="Incident">${esc(g.id)}</td></tr>`;
+  }).join('');
+  const f = S.f; const active = f.q || f.fac || f.prov || f.desc || f.due || f.st || f.fk; const p = progress(rows);
+  return `<div class="card noprint"><div class="row">
+      <input class="fld grow" style="min-width:180px" id="q" placeholder="Search name, MRN, incident, provider, note…" value="${esc(f.q)}" aria-label="Search">
+      <select class="fld" style="width:auto;max-width:240px" data-filt="desc" aria-label="Description"><option value="">All descriptions</option>${opts('desc', f.desc)}</select>
+      <select class="fld" style="width:auto" data-filt="st" aria-label="Status"><option value="">Any status</option>${STATUSES.map(x => `<option ${f.st === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      <select class="fld" style="width:auto" data-filt="due" aria-label="Due"><option value="">Any due date</option><option value="past" ${f.due === 'past' ? 'selected' : ''}>Past due</option><option value="soon" ${f.due === 'soon' ? 'selected' : ''}>Due in 7 days</option></select>
+    </div><div class="row" style="margin-top:8px"><span class="small muted">${inc.length} incidents · ${rows.length} items · ${p.remaining} remaining · ${esc(wlLabel())}${f.fk ? ' · <b>focus items only</b>' : ''} · click a row to open it</span><span class="grow"></span>
+      ${S.sort ? '<button class="linkbtn" data-act="sortReset">Default sort</button>' : ''}${active ? '<button class="linkbtn" data-act="clearFilt">Clear filters</button>' : ''}<button class="btn sm" data-act="copyList">Copy list</button><button class="btn sm" data-act="progEmail">Progress recap</button></div></div>
+    <div class="card" style="padding:0"><div class="tblwrap" style="max-height:72vh"><table class="wl"><thead><tr>${th('status', 'Status')}${th('fac', 'Clinic')}${th('prov', 'Provider')}${th('mrn', 'MRN')}${th('name', 'Patient')}${th('desc', 'Description')}${th('dos', 'DOS')}${th('due', 'Due')}<th>Notes</th>${th('id', 'Incident')}</tr></thead>
+      <tbody>${body || '<tr><td colspan="10" class="empty">Nothing matches these filters.</td></tr>'}</tbody></table></div></div>`;
+}
+
+// ---------- rename a description ----------
+function catExamples(c){
+  const m = new Map(); for (const r of S.rows) if (r.desc === c){ const k = String(r.raw || '').replace(/\s+/g, ' ').trim(); m.set(k, (m.get(k) || 0) + 1); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+function renameCat(c){
+  const ex = catExamples(c); const n = S.rows.filter(r => r.desc === c).length;
+  openModal(`<h2 style="margin:0 0 6px;display:flex;gap:8px;align-items:center">Rename description<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <div class="small muted">Current name</div><div style="font-weight:700;margin-bottom:8px">${esc(c)}</div>
+    ${ex.length ? `<h3>What's under this name now (${n} item${n === 1 ? '' : 's'})</h3><div class="tblwrap" style="max-height:180px"><table class="set"><tbody>${ex.slice(0, 8).map(([t, k]) => `<tr><td style="word-break:break-word">${esc(t.slice(0, 200))}</td><td style="text-align:right">${k}</td></tr>`).join('')}</tbody></table></div>${ex.length > 8 ? `<div class="small muted">and ${ex.length - 8} more wordings</div>` : ''}`
+      : `<div class="msg warn">Nothing in the current tab is filed under this name, so I can't show what it covers. Paste an example description from a portal export to confirm it belongs here.</div>
+         <label class="lbl" for="rnEx">Example description</label><textarea class="fld" id="rnEx" style="min-height:60px" placeholder="e.g. ER/HIM/NB/Missing/Incomplete Chart/Missing TMS treatment report"></textarea><div class="small" id="rnExOut" style="margin-top:4px"></div>`}
+    <label class="lbl" for="rnNew">New name</label><input class="fld" id="rnNew" value="${esc(c)}">
+    <div class="small" id="rnWarn" style="margin-top:4px"></div>
+    <div class="small muted" style="margin-top:6px">Everything under "${esc(c)}" is renamed: dashboard, work list, emails, Settings, and the Description column on Filtered tabs already built. Pivots refresh.</div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="renameSave" data-c="${esc(c)}">Rename</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+  S._rn = { c, needEx: !ex.length };
+  setTimeout(() => { const i = $('#rnNew'); if (i){ i.focus(); i.select(); } }, 40);
+}
+function renameCheck(){
+  const o = S._rn; if (!o) return true; const nv = ($('#rnNew')?.value || '').trim(); const w = $('#rnWarn');
+  const exists = nv && nv !== o.c && S.rows.some(r => r.desc === nv);
+  if (w) w.innerHTML = !nv ? '<span class="badText">Enter a name.</span>' : exists ? `<span class="warnText">"${esc(nv)}" already exists (${S.rows.filter(r => r.desc === nv).length} items). Renaming will merge the two.</span>` : '';
+  if (o.needEx){
+    const t = ($('#rnEx')?.value || '').trim(); const out = $('#rnExOut');
+    if (!t){ if (out) out.textContent = ''; return false; }
+    const c = classifyIR(t); const lands = c.outlier ? dispCat(c.key) : c.cat;
+    if (out) out.innerHTML = lands === o.c ? `<span style="color:var(--ok);font-weight:700">✓ That example belongs to "${esc(o.c)}".</span>` : `<span class="warnText">That example is counted as "${esc(lands)}", not "${esc(o.c)}". Rename that one instead, or check the example.</span>`;
+    if (lands !== o.c) return false;
+  }
+  return !!nv;
+}
+async function renameApply(oldN, newN){
+  const m = Object.assign({}, S.cfg.rename); const wasCtrl = isCtrl(oldN), wasRoute = routeOf(oldN); const merge = S.rows.some(r => r.desc === newN);
+  const originals = new Set([oldN, ...Object.keys(m).filter(k => dispCat(k) === oldN), ...IR_CATS.filter(k => dispCat(k) === oldN), AUTH_CAT].filter(k => dispCat(k) === oldN));
+  for (const k of originals) m[k] = newN;
+  for (const k of Object.keys(m)) if (m[k] === k) delete m[k];
+  S.cfg.rename = m;
+  if (!merge){ S.cfg.ctrl = Object.assign({}, S.cfg.ctrl, { [newN]: wasCtrl }); S.cfg.route = Object.assign({}, S.cfg.route, { [newN]: wasRoute }); }
+  delete S.cfg.ctrl[oldN]; delete S.cfg.route[oldN];
+  await saveCfg(); S.irCache = null; S.erCache = null;
+  let changed = 0;
+  busy(true, 'Renaming on the Filtered tabs…');
+  try {
+    for (const P of PARTS){ if (!(S.rep && S.rep.has(P.filtered))) continue; changed += await renameInSheet(P.filtered, oldN, newN); }
+    if (changed) try { await S.store.refreshPivots(); } catch (e){ console.error(e); }
+  } catch (e){ console.error(e); toast('warn', 'Renamed in the add-in, but couldn\'t update a Filtered tab: ' + esc(e.message || e)); }
+  busy(false); await reload(true);
+  toast('ok', `Renamed to "${esc(newN)}"${changed ? `, ${changed} cells updated on Filtered tabs` : ''}.`);
+}
+async function renameInSheet(sheet, oldN, newN){
+  const v = await S.store.readSheet(sheet); const hi = findHeader(v, ['incident id', 'description', 'facility']); if (hi < 0) return 0;
+  const c = v[hi].map(norm).indexOf('description'); const cells = [];
+  for (let r = hi + 1; r < v.length; r++) if (String(v[r][c] ?? '').trim().replace(/\.$/, '') === oldN) cells.push({ r, c, v: newN });
+  if (cells.length) await S.store.writeCells(sheet, cells, []);
+  return cells.length;
+}
+
+// ---------- incident detail: edit status and note ----------
+function editIncident(id){
+  const rows = S.rows.filter(r => r.id === id); if (!rows.length) return; const r = rows[0]; const rec = noteRec(id);
+  openModal(`<h2 style="margin:0 0 6px;display:flex;gap:8px;align-items:center">Incident ${esc(id)}<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <div class="hdrs" style="grid-template-columns:90px minmax(0,1fr)"><b>Patient</b><span>${esc(r.name)} <span class="muted">(${esc(r.code)})</span></span><b>MRN</b><span>${esc(r.mrn)}</span><b>Clinic</b><span>${esc(r.fac)}</span><b>Provider</b><span>${esc(r.prov)}</span><b>DOS</b><span>${fmtD(r.dos)}</span><b>Due</b><span>${fmtD(r.due)}</span></div>
+    <h3>${rows.length > 1 ? rows.length + ' items on this incident' : 'Item'}</h3>
+    ${rows.map(x => `<div class="srow" style="background:var(--surface2)"><div class="row"><b>${esc(x.desc)}</b>${isCtrl(x.desc) ? '' : '<span class="pill">Non-controllable</span>'}</div><div class="small muted" style="white-space:pre-wrap;word-break:break-word">${esc(x.raw)}</div>${x.act && typeof x.act === 'string' ? `<div class="small muted">Last activity: ${esc(x.act)}</div>` : ''}</div>`).join('')}
+    <label class="lbl" for="incStatus">Status</label><select class="fld" id="incStatus" style="max-width:240px">${STATUSES.map(x => `<option ${x === statusOf(id) ? 'selected' : ''}>${x}</option>`).join('')}</select>
+    <label class="lbl" for="incNote">Note <span class="muted">(saved to column B on every day-part tab for this incident)</span></label><textarea class="fld" id="incNote" style="min-height:90px">${esc(noteOf(id))}</textarea>
+    ${rec && rec.at ? `<div class="small muted" style="margin-top:4px">Last saved ${new Date(rec.at).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${rec.by ? ' by ' + esc(rec.by) : ''}</div>` : ''}
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="incSave" data-id="${esc(id)}">Save</button><button class="btn" data-act="closeModal">Cancel</button><span class="grow"></span><span class="small muted">Adding a note moves Needs review to Reviewed.</span></div>`);
+}
+async function saveIncident(id, note, status, opts = {}){
+  note = String(note ?? '').trim();
+  if (note && status === 'Needs review' && !opts.keepStatus) status = 'Reviewed';
+  S.notes[id] = { note, status, at: new Date().toISOString(), by: S.cfg.signoff || '' };
+  const all = Object.assign({}, S.store.getDoc('irNotes') || {}, { [id]: S.notes[id] });
+  await S.store.setDoc('irNotes', all);
+  render();
+  try { await writeNotes([id]); } catch (e){ console.error(e); toast('warn', 'Saved in the add-in, but couldn\'t write to columns A/B: ' + esc(e.message || e)); }
+}
+// index a tab: header row, incident column, rows per incident (cached; re-read if the sheet was re-sorted)
+async function sheetIndex(sheet, force){
+  if (!force && S.sidx[sheet]) return S.sidx[sheet];
+  const v = await S.store.readSheet(sheet);
+  const hi = findHeader(v, ['incident id', 'description', 'facility']); if (hi < 0) return null;
+  const H = v[hi].map(norm); const inc = H.indexOf('incident id');
+  if ((H[0] && H[0] !== 'status') || (H[1] && H[1] !== 'notes')){ await S.store.insertCols(sheet, 2); return sheetIndex(sheet, true); } // make room in A:B
+  const rows = new Map(); for (let r = hi + 1; r < v.length; r++){ const k = String(v[r][inc] ?? '').trim(); if (!k) continue; if (!rows.has(k)) rows.set(k, []); rows.get(k).push(r); }
+  return (S.sidx[sheet] = { hi, inc, rows, hasHdr: H[0] === 'status' && H[1] === 'notes' });
+}
+function noteTabs(){
+  const R = S.rep || { ir: {}, has: () => false };
+  return [...new Set([...Object.values(R.ir).map(x => x.sheet), ...PARTS.map(p => p.filtered).filter(n => R.has(n))])];
+}
+async function writeNotes(ids, onlySheets){
+  for (const sheet of onlySheets || noteTabs()){
+    for (let attempt = 0; attempt < 2; attempt++){
+      const ix = await sheetIndex(sheet, attempt > 0); if (!ix) break;
+      const cells = [], checks = [];
+      if (!ix.hasHdr){ cells.push({ r: ix.hi, c: 0, v: 'Status' }, { r: ix.hi, c: 1, v: 'Notes' }); }
+      for (const id of ids){ for (const r of ix.rows.get(String(id)) || []){ cells.push({ r, c: 0, v: statusOf(id) }, { r, c: 1, v: noteOf(id) }); checks.push({ r, c: ix.inc, v: String(id) }); } }
+      if (!cells.length) break;
+      if (await S.store.writeCells(sheet, cells, checks)){ ix.hasHdr = true; break; }
+    }
+  }
+}
+// ---------- progress recap for clinics ----------
+function progressEmail(){
+  const rows = viewRows(); const p = progress(rows); const where = wlLabel();
+  const B = 'padding:3px 10px;border-bottom:1px solid #e3d9c6', BN = B + ';text-align:right', HD = 'padding:4px 10px;background:#DDEBF7;font-weight:700;border-bottom:1px solid #9BC2E6', HDN = HD + ';text-align:right', TT = 'padding:4px 10px;background:#DDEBF7;font-weight:700', TTN = TT + ';text-align:right';
+  const table = (label, groups, noTotal) => `<table style="border-collapse:collapse;font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:13px;margin:8px 0 16px"><tr><td style="${HD}">${esc(label)}</td><td style="${HDN}">Items</td><td style="${HDN}">Reviewed</td><td style="${HDN}">Submitted</td><td style="${HDN}">Remaining</td></tr>
+    ${groups.map(([k, rs]) => { const q = progress(rs); return `<tr><td style="${B}">${esc(k)}</td><td style="${BN}">${q.total}</td><td style="${BN}">${q.Reviewed}</td><td style="${BN}">${q.Submitted}</td><td style="${BN};font-weight:700">${q.remaining}</td></tr>`; }).join('')}
+    ${noTotal ? '' : `<tr><td style="${TT}">Total</td><td style="${TTN}">${p.total}</td><td style="${TTN}">${p.Reviewed}</td><td style="${TTN}">${p.Submitted}</td><td style="${TTN}">${p.remaining}</td></tr>`}</table>`;
+  const txt = (label, groups, noTotal) => [`${label}\tItems\tReviewed\tSubmitted\tRemaining`, ...groups.map(([k, rs]) => { const q = progress(rs); return `${k}\t${q.total}\t${q.Reviewed}\t${q.Submitted}\t${q.remaining}`; }), ...(noTotal ? [] : [`Total\t${p.total}\t${p.Reviewed}\t${p.Submitted}\t${p.remaining}`])].join('\n');
+  const byFocus = [...focusKw().map(f => [f.label, rows.filter(r => hasFocus(r, f.label))]), [dispCat('Missing Signature'), rows.filter(r => r.desc === dispCat('Missing Signature'))]];
+  const byDesc = [...groupBy(rows, 'desc').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
+  const byFac = S.loc || (wlOn() && S.wl.list.length <= 1) ? null : [...groupBy(rows, 'fac').entries()].sort((a, b) => byName(a[0], b[0]));
+  const line = `${where}: ${p.done} of ${p.total} items worked (${p.pct}%). ${p.Reviewed} reviewed, ${p.Submitted} submitted, ${p.remaining} remaining.`;
+  rptEmail({ who: `${where} progress`, subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`,
+    body: n => wrap(`<p style="margin:0 0 6px">${esc(where)} work list update:</p>${n ? `<p style="margin:0 0 8px">${esc(n).replace(/\n/g, '<br>')}</p>` : ''}<p style="margin:0 0 6px"><b>${p.remaining} remaining</b> of ${p.total} (${p.Reviewed} reviewed, ${p.Submitted} submitted).</p>${table('Description', byDesc)}${byFac ? table('Clinic', byFac) : ''}`),
+    text: n => `${where} work list update:\n\n${n ? n + '\n\n' : ''}${line}\n\n${txt('Description', byDesc)}${byFac ? '\n\n' + txt('Clinic', byFac) : ''}` });
+}
+
+function provContact(p){ return S.cfg.providers[p] || {}; }
+// ---------- provider directory (HR export: First name, Last name, Work email, Title, Location, Region, Employee status) ----------
+const DIR_LOC = { 'san francisco': 'Post', 'san francisco - castro': 'Castro Street', 'roseville - sierra college': 'Sierra College', 'oakland iv': 'Oakland', 'remote': '', 'southern california': '' };
+const dirClinic = g => { const k = norm(g); return k in DIR_LOC ? DIR_LOC[k] : String(g ?? '').trim(); };
+const NICK = {ROB:'ROBERT',BOB:'ROBERT',KIM:'KIMBERLY',JOSH:'JOSHUA',BEN:'BENJAMIN',TOBY:'TOBIAS',VANGIE:'EVANGELINE',JAZ:'JAZMYNE',BEX:'REBECCA',LIZ:'ELIZABETH',BETH:'ELIZABETH',KATE:'KATHERINE',KATIE:'KATHERINE',MIKE:'MICHAEL',JIM:'JAMES',BILL:'WILLIAM',WILL:'WILLIAM',TOM:'THOMAS',DAN:'DANIEL',DAVE:'DAVID',SAM:'SAMUEL',ALEX:'ALEXANDER',CHRIS:'CHRISTOPHER',MATT:'MATTHEW',NICK:'NICHOLAS',TONY:'ANTHONY',STEVE:'STEVEN',ANDY:'ANDREW',JEN:'JENNIFER',JENNY:'JENNIFER',MEG:'MARGARET',SUE:'SUSAN',TRISH:'PATRICIA',GABE:'GABRIEL',ZACH:'ZACHARY',JOE:'JOSEPH',RICK:'RICHARD',RICH:'RICHARD',RON:'RONALD',GREG:'GREGORY',JON:'JONATHAN',NATE:'NATHAN',CHARLIE:'CHARLES',ABBY:'ABIGAIL',MANNY:'MANUEL'};
+const LT = s => String(s ?? '').toUpperCase().replace(/[^A-Z]/g, '');
+const titleCase = s => String(s ?? '').trim().split(/\s+/).map(w => w === w.toLowerCase() || w === w.toUpperCase() ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
+function dirRole(t){ t = String(t || '').toLowerCase(); if (/physician|medical director|medical officer|psychiatrist|\bmd\b/.test(t) && !/nurse/.test(t)) return 'Physician'; if (/pmhnp|nurse practitioner|\bnp\b/.test(t)) return 'Nurse Practitioner'; if (/therap/.test(t)) return 'Therapist'; if (/\brn\b|registered nurse/.test(t)) return 'RN'; return ''; }
+const dirGreet = d => d.role === 'Physician' ? 'Dr. ' + titleCase(d.last) : titleCase(d.first);
+function firstOk(F, toks){ F = LT(F); return toks.some(t => { t = LT(t); return t && F && (t === F || t.startsWith(F) || F.startsWith(t) || t.slice(0, 3) === F.slice(0, 3) || NICK[F] === t || NICK[t] === F); }); }
+function dirMatch(irName){
+  const dir = S.cfg.dir || []; const toks = String(irName || '').toUpperCase().replace(CREDS, '').replace(',', ' ').trim().split(/\s+/); const res = [];
+  for (const d of dir){ const last = LT(d.last); if (!last) continue; for (let k = 1; k < toks.length; k++) if (LT(toks.slice(0, k).join('')) === last){ res.push([d, firstOk(d.first, toks.slice(k))]); break; } }
+  const act = a => a.sort((x, y) => (x[0].status === 'ACTIVE' ? 0 : 1) - (y[0].status === 'ACTIVE' ? 0 : 1));
+  const strong = act(res.filter(x => x[1]));
+  if (strong.length) return { d: strong[0][0], note: '' };
+  if (toks.length >= 2){ const key = LT(toks[1].charAt(0) + toks[0]); const em = dir.filter(d => LT(String(d.email).split('@')[0]) === key); if (em.length === 1) return { d: em[0], note: 'matched by email address, please confirm' }; }
+  if (res.length === 1) return { d: res[0][0], note: 'last name only, please confirm' };
+  if (res.length) return { d: act(res)[0][0], note: `${res.length} people share this last name, please confirm` };
+  return null;
+}
+async function importDirectory(file){
+  busy(true, `Reading ${file.name}…`);
+  try {
+    await loadXLSX();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const v = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+    const hi = findHeader(v, ['first name', 'last name', 'work email']); if (hi < 0) throw new Error('That file needs First name, Last name and Work email columns.');
+    const H = v[hi].map(norm); const ix = n => H.indexOf(n);
+    const iF = ix('first name'), iL = ix('last name'), iE = ix('work email'), iT = ix('title'), iG = ix('location'), iR = ix('region'), iS = ix('employee status');
+    const dir = [];
+    for (const r of v.slice(hi + 1)){
+      const title = iT >= 0 ? r[iT] : '', region = iR >= 0 ? r[iR] : '';
+      if (!(/clinician|clincian/i.test(region) || /regional medical director|chief medical officer/i.test(title))) continue; // providers only
+      dir.push({ first: String(r[iF]).trim(), last: String(r[iL]).trim(), email: String(r[iE]).trim(), title: String(title).trim(), loc: iG >= 0 ? String(r[iG]).trim() : '', status: iS >= 0 ? String(r[iS]).trim().toUpperCase() : '', role: dirRole(title) });
+    }
+    if (!dir.length) throw new Error('No providers found (Region = Clinicians) in that file.');
+    S.cfg.dir = dir; S.cfg.dirAt = new Date().toISOString(); S.cfg.dirName = file.name;
+    const n = applyDirectory(); await saveCfg(); busy(false); render();
+    toast('ok', `${dir.length} providers loaded. ${n.filled} portal providers filled in${n.check ? `, ${n.check} to confirm` : ''}${n.none ? `, ${n.none} not found` : ''}.`);
+  } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); }
+}
+// fill email / greeting / home clinic for every portal provider; never overwrite something typed by hand
+function applyDirectory(){
+  const out = { filled: 0, check: 0, none: 0 }; if (!(S.cfg.dir || []).length) return out;
+  const names = [...new Set([...S.rows.map(r => r.prov), ...Object.keys(S.cfg.providers)])].filter(p => p && p !== '(No provider)');
+  const P = Object.assign({}, S.cfg.providers);
+  for (const p of names){
+    const m = dirMatch(p); const cur = Object.assign({}, P[p]); const man = cur.manual || {};
+    if (!m){ out.none++; P[p] = Object.assign(cur, { dirNote: 'not in directory' }); continue; }
+    const d = m.d; out.filled++; if (m.note) out.check++;
+    if (!man.email) cur.email = d.email; if (!man.greet) cur.greet = dirGreet(d);
+    Object.assign(cur, { home: dirClinic(d.loc), homeRaw: d.loc, role: d.role, title: d.title, status: d.status, dirName: titleCase(d.first + ' ' + d.last), dirNote: m.note });
+    P[p] = cur;
+  }
+  S.cfg.providers = P; return out;
+}
+const provClinics = p => [...groupBy(S.rows.filter(r => r.prov === p), 'fac').entries()].sort((a, b) => b[1].length - a[1].length).map(([f, rs]) => `${f} (${rs.length})`).join(', ');
+function provRecipients(p){
+  const c = provContact(p); const to = splitEmails(c.email);
+  const itemClinics = new Set((S.loc ? [S.loc] : ctrlRows().filter(r => r.prov === p).map(r => r.fac)));
+  const homeLead = c.home && !itemClinics.has(c.home) ? splitEmails((S.cfg.clinics[c.home] || {}).leader) : [];
+  const sup = splitEmails(c.sup || S.cfg.supDefault).filter(e => !to.some(t => t.toLowerCase() === e.toLowerCase()));
+  return { to, cc: uniq([...splitEmails(S.cfg.ccAlways), ...splitEmails(c.leader), ...homeLead, ...sup]).filter(e => !to.some(t => t.toLowerCase() === e.toLowerCase())) };
+}
+function sigHTML(){
+  const rows = ctrlRows().filter(r => routeOf(r.desc) === 'provider');
+  const groups = [...groupBy(rows, 'prov').entries()].sort((a, b) => byName(a[0], b[0]));
+  const open = groups.filter(([p]) => !sentFresh(sentKey('p', p))), done = groups.filter(([p]) => sentFresh(sentKey('p', p)));
+  const show = S.sigView === 'open' ? open : done;
+  const card = ([p, rs]) => {
+    rs = sorted(rs); const { to } = provRecipients(p); const s = sentOn(sentKey('p', p)); const fresh = sentFresh(sentKey('p', p));
+    const facs = [...new Set(rs.map(r => r.fac))];
+    return `<div class="card grp ${fresh ? 'sent' : to.length ? 'ready' : 'noemail'}"><div class="gh"><span class="gname">${esc(p)}</span><span class="pill">${rs.length}</span>
+        ${rs.some(r => r.dueIn !== null && r.dueIn < 0) ? '<span class="pill bad">past due</span>' : ''}<span class="small muted">${facs.map(esc).join(' · ')}${provContact(p).home ? ` · home: ${esc(provContact(p).home)}` : ''}</span><span class="grow"></span>
+        ${s ? `<span class="pill ${fresh ? 'ok' : ''}">Sent ${fmtD(s)}</span>` : ''}${to.length ? '' : '<button class="btn sm" data-act="editProv" data-p="' + esc(p) + '">Add email</button>'}
+        <button class="btn sm primary" data-act="provEmail" data-p="${esc(p)}">Reminder email</button></div>
+      <table class="mini"><thead><tr><th>Patient</th><th>MRN</th><th>DOS</th><th>Description</th><th>Location</th><th>Due</th></tr></thead><tbody>
+        ${rs.map(r => `<tr><td>${esc(S.cfg.codify ? r.code : r.name)}</td><td>${esc(r.mrn)}</td><td>${fmtD(r.dos)}</td><td>${esc(r.desc)}</td><td>${esc(r.fac)}</td><td class="${r.dueIn !== null && r.dueIn < 0 ? 'due-bad' : ''}">${fmtD(r.due)}</td></tr>`).join('')}</tbody></table></div>`;
+  };
+  return `<div class="row noprint" style="margin-bottom:10px"><div class="subnav" style="margin:0"><button data-act="sigView" data-v="open" aria-pressed="${S.sigView === 'open'}">To send <span class="badge ${open.length ? '' : 'neutral'}">${open.length}</span></button><button data-act="sigView" data-v="done" aria-pressed="${S.sigView === 'done'}">Sent this week <span class="badge neutral">${done.length}</span></button></div>
+      <span class="grow"></span><span class="small muted">Descriptions routed to providers: ${[...new Set(rows.map(r => r.desc))].map(esc).join(', ') || 'none'}</span></div>
+    ${show.map(card).join('') || `<div class="card empty">${S.sigView === 'open' ? 'Every provider with signature items has been reminded in the last 7 days.' : 'No reminders marked sent in the last 7 days.'}</div>`}`;
+}
+
+function clinicHTML(){
+  const rows = ctrlRows().filter(r => routeOf(r.desc) === 'clinic');
+  const groups = [...groupBy(rows, 'fac').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
+  const open = groups.filter(([f]) => !sentFresh('c:' + f)), done = groups.filter(([f]) => sentFresh('c:' + f));
+  const show = S.clinView === 'open' ? open : done;
+  const card = ([fac, rs]) => {
+    const c = S.cfg.clinics[fac] || {}; const s = sentOn('c:' + fac); const fresh = sentFresh('c:' + fac);
+    const secs = clinicSections(rs);
+    return `<div class="card grp ${fresh ? 'sent' : splitEmails(c.email).length ? 'ready' : 'noemail'}"><div class="gh"><span class="gname">${esc(fac)}</span><span class="pill">${rs.length}</span><span class="grow"></span>
+        ${s ? `<span class="pill ${fresh ? 'ok' : ''}">Sent ${fmtD(s)}</span>` : ''}${splitEmails(c.email).length ? '' : `<button class="btn sm" data-act="editClinic" data-f="${esc(fac)}">Add clinic email</button>`}
+        <button class="btn sm" data-act="printClinic" data-f="${esc(fac)}">Print action list</button><button class="btn sm primary" data-act="clinicEmail" data-f="${esc(fac)}">Clinic email</button></div>
+      ${secs.map(sec => `<div class="sec ${sec.cls}"><h4>${esc(sec.title)} <span class="muted small">· ${sec.rows.length}</span></h4><table class="mini"><thead><tr><th>Patient</th><th>MRN</th><th>DOS</th><th>Provider</th><th>Description</th><th>Due</th></tr></thead><tbody>
+        ${sec.rows.map(r => `<tr><td>${esc(S.cfg.codify ? r.code : r.name)}</td><td>${esc(r.mrn)}</td><td>${fmtD(r.dos)}</td><td>${esc(r.prov)}</td><td>${esc(r.desc)}</td><td class="${r.dueIn !== null && r.dueIn < 0 ? 'due-bad' : ''}">${fmtD(r.due)}</td></tr>`).join('')}</tbody></table></div>`).join('')}</div>`;
+  };
+  return `<div class="row noprint" style="margin-bottom:10px"><div class="subnav" style="margin:0"><button data-act="clinView" data-v="open" aria-pressed="${S.clinView === 'open'}">To send <span class="badge ${open.length ? '' : 'neutral'}">${open.length}</span></button><button data-act="clinView" data-v="done" aria-pressed="${S.clinView === 'done'}">Sent this week <span class="badge neutral">${done.length}</span></button></div>
+      <span class="grow"></span><button class="btn sm" data-act="printClinic" data-f="">Print all action lists</button></div>
+    ${show.map(card).join('') || `<div class="card empty">${S.clinView === 'open' ? 'Every location with clinic items has been sent its list in the last 7 days.' : 'No clinic lists marked sent in the last 7 days.'}</div>`}`;
+}
+function clinicSections(rs){
+  rs = sorted(rs);
+  const reg = rs.filter(r => isRegistration(r.desc)), clin = rs.filter(r => !isRegistration(r.desc));
+  return [clin.length && { title: 'Clinical documentation', cls: 'amber', rows: clin }, reg.length && { title: 'Registration (ER/HIM/NB): demographics, insurance, network', cls: 'blue', rows: reg }].filter(Boolean);
+}
+
+function setHTML(){
+  const c = S.cfg; const descs = [...groupBy(S.rows, 'desc').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
+  const known = new Set(descs.map(d => d[0])); const extra = Object.keys(Object.assign({}, c.ctrl, c.route)).filter(d => !known.has(d));
+  const provs = [...new Set([...S.rows.map(r => r.prov), ...Object.keys(c.providers)])].filter(p => p && p !== '(No provider)').sort(byName);
+  const facs = [...new Set([...S.rows.filter(r => isCtrl(r.desc) && routeOf(r.desc) === 'clinic').map(r => r.fac), ...Object.keys(c.clinics)])].sort(byName);
+  const sel = (d) => { const v = routeOf(d); return `<select class="fld" data-route="${esc(d)}" style="width:auto;min-width:175px"><option value="provider" ${v === 'provider' ? 'selected' : ''}>Provider reminder</option><option value="clinic" ${v === 'clinic' ? 'selected' : ''}>Clinic action list</option><option value="none" ${v === 'none' ? 'selected' : ''}>Track only</option></select>`; };
+  return `${S.loadErr ? `<div class="msg bad">${esc(S.loadErr)}</div>` : ''}
+  <div class="cols"><div>
+    <div class="card"><h2>Descriptions</h2>
+      <div class="small muted" style="margin-bottom:6px">Tick what counts as controllable. Non-controllable items stay off the reminder emails and action lists, and are hidden in the worklist unless you choose to show them.</div>
+      <table class="set"><thead><tr><th>Controllable</th><th>Description</th><th>Rows</th><th>Route to</th></tr></thead><tbody>
+        ${[...descs, ...extra.map(d => [d, []])].map(([d, x]) => `<tr><td><input type="checkbox" data-ctrl="${esc(d)}" ${isCtrl(d) ? 'checked' : ''} aria-label="Controllable: ${esc(d)}" style="width:18px;height:18px;accent-color:var(--accent)"></td><td>${esc(d)} <button class="linkbtn" style="padding:0 4px" data-act="renameCat" data-c="${esc(d)}" title="Rename" aria-label="Rename ${esc(d)}">✎</button></td><td>${x.length}</td><td>${sel(d)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Descriptions appear here once the tab is read.</td></tr>'}
+      </tbody></table></div>
+    <div class="card"><h2>Focus highlights</h2><div class="small muted" style="margin-bottom:6px">Items whose original portal description contains any of these words are counted in the Focus items number at the top of the Clinic Dashboard. Separate words with commas.</div>
+      <table class="set"><thead><tr><th>Label</th><th>Keywords</th><th></th></tr></thead><tbody>${focusKw().map((f, i) => `<tr><td><input class="fld" data-fk="${i}" data-k="label" value="${esc(f.label)}" style="max-width:160px" aria-label="Label"></td><td><input class="fld" data-fk="${i}" data-k="words" value="${esc(f.words)}" aria-label="Keywords"></td><td><button class="linkbtn" data-act="fkDel" data-v="${i}">Remove</button></td></tr>`).join('')}</tbody></table>
+      <div class="row" style="margin-top:6px"><button class="btn sm" data-act="fkAdd">Add highlight</button><button class="linkbtn" data-act="fkReset">Reset to Tx report / Infusion note / BH Master</button></div></div>
+    <div class="card"><h2>Default view</h2><div class="small muted" style="margin-bottom:6px">What opens first on this computer. Each person sets their own.</div>
+      <div class="seg" role="group" aria-label="Default view">${[['dash', 'Clinic Dashboard'], ['rep', 'Reports']].map(([k, l]) => `<button data-act="setStart" data-v="${k}" aria-pressed="${startTab() === k}">${l}</button>`).join('')}</div></div>
+    <div class="card"><h2>Data source</h2><label class="lbl" for="sheetIn">Tab the dashboard reads ("auto" = the latest day-part export: EOD, then Midday, then AM)</label>
+      <div class="row"><input class="fld grow" id="sheetIn" value="${esc(c.sheet)}" list="sheetList"><datalist id="sheetList">${(S.sheets || []).map(n => `<option value="${esc(n)}">`).join('')}</datalist><button class="btn" data-act="saveSheet">Read it</button></div>
+      <label class="chk" style="margin-top:10px"><input type="checkbox" id="codifyIn" ${c.codify ? 'checked' : ''}> Use codified patient IDs (SMIJOH) in emails, lists and printouts</label></div>
+  </div><div>
+    <div class="card"><h2>Provider reminder emails</h2>
+      <label class="lbl" for="ccAlways">Always cc</label><input class="fld" id="ccAlways" data-cfg="ccAlways" value="${esc(c.ccAlways)}" placeholder="name@mymhs.com; name2@mymhs.com">
+      <label class="lbl" for="supDefault">Default physician supervisor (cc'd unless the provider has their own, and never on their own reminder)</label><input class="fld" id="supDefault" data-cfg="supDefault" value="${esc(c.supDefault)}">
+      <label class="lbl" for="provIntro">Message</label><textarea class="fld" id="provIntro" data-cfg="provIntro">${esc(c.provIntro)}</textarea>
+      <h3>Provider directory</h3>
+      <div class="row"><label class="btn sm primary" style="display:inline-flex;align-items:center">${(c.dir || []).length ? 'Replace' : 'Import'} directory export (CSV/XLSX)…<input type="file" data-dirupload="1" accept=".csv,.xlsx,.xls" hidden></label>
+        <span class="small muted">${(c.dir || []).length ? `${c.dir.length} providers from ${esc(c.dirName || 'directory')} · ${new Date(c.dirAt).toLocaleDateString()}` : 'Fills each provider\'s email, greeting (Dr. Last for physicians, first name otherwise) and home clinic. Anything you type below is kept.'}</span></div>
+      <h3>Provider contacts</h3>
+      <div class="tblwrap"><table class="set"><thead><tr><th>Provider (as on the tab)</th><th>Home clinic · clinics with items</th><th>Email</th><th>Greeting</th><th>Supervisor cc</th><th>Practice leader cc</th></tr></thead><tbody>
+        ${provs.map(p => { const x = c.providers[p] || {}; return `<tr><td>${esc(p)}${x.dirName ? `<div class="small muted">${esc(x.dirName)}${x.title ? ' · ' + esc(x.title) : ''}${x.status && x.status !== 'ACTIVE' ? ' · <span class="badText">' + esc(titleCase(x.status)) + '</span>' : ''}</div>` : ''}${x.dirNote ? `<div class="small warnText">${esc(x.dirNote)}</div>` : ''}</td><td class="small"><b>${esc(x.home || (x.homeRaw ? x.homeRaw : '—'))}</b><div class="muted">${esc(provClinics(p))}</div></td><td><input class="fld" data-prov="${esc(p)}" data-k="email" value="${esc(x.email)}" aria-label="Email for ${esc(p)}"></td><td><input class="fld" data-prov="${esc(p)}" data-k="greet" value="${esc(x.greet)}" placeholder="${esc(firstName(p))}" style="max-width:110px" aria-label="Greeting"></td><td><input class="fld" data-prov="${esc(p)}" data-k="sup" value="${esc(x.sup)}" placeholder="default" aria-label="Supervisor"></td><td><input class="fld" data-prov="${esc(p)}" data-k="leader" value="${esc(x.leader)}" placeholder="if other office" aria-label="Practice leader"></td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Providers with signature items appear here.</td></tr>'}
+      </tbody></table></div></div>
+    <div class="card"><h2>Clinic action lists</h2>
+      <label class="lbl" for="ccClinic">Always cc on clinic emails</label><input class="fld" id="ccClinic" data-cfg="ccClinic" value="${esc(c.ccClinic)}">
+      <label class="lbl" for="clinicIntro">Message</label><textarea class="fld" id="clinicIntro" data-cfg="clinicIntro">${esc(c.clinicIntro)}</textarea>
+      <h3>Clinic contacts</h3>
+      <div class="tblwrap"><table class="set"><thead><tr><th>Location</th><th>Clinic email</th><th>Practice leader cc</th></tr></thead><tbody>
+        ${facs.map(f => { const x = c.clinics[f] || {}; return `<tr><td>${esc(f)}</td><td><input class="fld" data-clinic="${esc(f)}" data-k="email" value="${esc(x.email)}" aria-label="Clinic email for ${esc(f)}"></td><td><input class="fld" data-clinic="${esc(f)}" data-k="leader" value="${esc(x.leader)}" aria-label="Leader for ${esc(f)}"></td></tr>`; }).join('') || '<tr><td colspan="3" class="empty">Locations with clinic items appear here.</td></tr>'}
+      </tbody></table></div></div>
+    <div class="card"><h2>Daily update emails (Reports tab)</h2>
+      <label class="lbl" for="rptTo">To</label><input class="fld" id="rptTo" data-cfg="rptTo" value="${esc(c.rptTo)}">
+      <label class="lbl" for="rptCc">Cc</label><input class="fld" id="rptCc" data-cfg="rptCc" value="${esc(c.rptCc)}">
+      <label class="lbl" for="rptSubject">Subject (the date is added)</label><input class="fld" id="rptSubject" data-cfg="rptSubject" value="${esc(c.rptSubject)}">
+      <label class="lbl" for="erIntro">Weekly ER email opening line</label><textarea class="fld" id="erIntro" data-cfg="erIntro" style="min-height:60px">${esc(c.erIntro)}</textarea>
+      <label class="lbl">Weekly ER: revenue types kept (non-interventional)</label>
+      <div class="row">${[...new Set([...Object.values(REV_TYPE), 'Not Coded - Missing Chart'])].sort(byName).map(r => `<label class="chk small" style="font-weight:600"><input type="checkbox" data-erkeep="${esc(r)}" ${erKeep().includes(r) ? 'checked' : ''}> ${esc(r)}</label>`).join('')}</div></div>
+    <div class="card"><h2>Email footer</h2>
+      <label class="lbl" for="signoff">Sign-off name</label><input class="fld" id="signoff" data-cfg="signoff" value="${esc(c.signoff)}">
+      <label class="lbl" for="disclaimer">Confidentiality disclaimer</label><textarea class="fld" id="disclaimer" data-cfg="disclaimer" style="min-height:110px">${esc(c.disclaimer)}</textarea></div>
+    <div class="card"><h2>Move settings</h2><div class="small muted">Settings save inside this workbook and in this browser. If the portal export is replaced with a new file, they carry over automatically in the same browser, or copy them here and paste them into the new one.</div>
+      <div class="row" style="margin-top:8px"><button class="btn" data-act="exportCfg">Copy settings</button><button class="btn" data-act="importCfg">Paste settings…</button><button class="btn" data-act="resetSent">Clear "sent" marks</button></div></div>
+  </div></div>`;
+}
+
+// ---------- emails ----------
+const TBL = 'border-collapse:collapse;font-family:Segoe UI,Arial,sans-serif;font-size:13px;margin:10px 0';
+const TH = 'background:#f1eadc;color:#2b2622;text-align:left;padding:6px 10px;border:1px solid #e3d9c6;font-weight:700';
+const TD = 'padding:6px 10px;border:1px solid #e3d9c6';
+const pt = r => S.cfg.codify ? r.code : r.name;
+function tableHTML(cols, rows, shade){
+  return `<table style="${TBL}"><thead><tr>${cols.map(c => `<th style="${TH}${shade ? ';background:' + shade : ''}">${esc(c[0])}</th>`).join('')}</tr></thead><tbody>${rows.map((r, i) => `<tr>${cols.map(c => `<td style="${TD}${i % 2 ? ';background:#fbf8f2' : ''}">${esc(c[1](r))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+const footHTML = () => `<p style="margin:14px 0 0">Thank you,${S.cfg.signoff ? '<br>' + esc(S.cfg.signoff) : ''}</p><p style="margin:16px 0 0;font-size:11px;color:#6f665c;line-height:1.4">${esc(S.cfg.disclaimer)}</p>`;
+const footText = () => `\n\nThank you,${S.cfg.signoff ? '\n' + S.cfg.signoff : ''}\n\n${S.cfg.disclaimer}`;
+const wrap = inner => `<div style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#2b2622;line-height:1.45">${inner}</div>`;
+function provEmail(p){
+  const rs = sorted(ctrlRows().filter(r => r.prov === p && routeOf(r.desc) === 'provider'));
+  const { to, cc } = provRecipients(p); const greet = provContact(p).greet || firstName(p) || 'there';
+  const cols = [['Patient', pt], ['MRN', r => r.mrn], ['DOS', r => fmtD(r.dos)], ['Description', r => r.desc]];
+  if (new Set(rs.map(r => r.fac)).size > 1) cols.push(['Location', r => r.fac]);
+  const html = wrap(`<p style="margin:0 0 8px">Hi ${esc(greet)},</p><p style="margin:0">${esc(S.cfg.provIntro)}</p>${tableHTML(cols, rs)}${footHTML()}`);
+  const text = `Hi ${greet},\n\n${S.cfg.provIntro}\n\n` + rs.map(r => cols.map(c => c[1](r)).join(' | ')).join('\n') + footText();
+  return { key: sentKey('p', p), to, cc, subject: `Unsigned Notes ${fmtShort(today())}`, html, text, who: p, count: rs.length };
+}
+function clinicEmail(fac){
+  const rs = ctrlRows().filter(r => r.fac === fac && routeOf(r.desc) === 'clinic'); const c = S.cfg.clinics[fac] || {};
+  const to = splitEmails(c.email); const cc = uniq([...splitEmails(c.leader), ...splitEmails(S.cfg.ccClinic)]).filter(e => !to.some(t => t.toLowerCase() === e.toLowerCase()));
+  const cols = [['Patient', pt], ['MRN', r => r.mrn], ['DOS', r => fmtD(r.dos)], ['Provider', r => r.prov], ['Description', r => r.desc], ['Due', r => fmtD(r.due)]];
+  const secs = clinicSections(rs);
+  const html = wrap(`<p style="margin:0 0 8px">Hello ${esc(fac)} team,</p><p style="margin:0">${esc(S.cfg.clinicIntro)}</p>${secs.map(s => `<p style="margin:14px 0 0;font-weight:700">${esc(s.title)} (${s.rows.length})</p>${tableHTML(cols, s.rows, s.cls === 'blue' ? '#e2edf6' : '#fbf0d6')}`).join('')}${footHTML()}`);
+  const text = `Hello ${fac} team,\n\n${S.cfg.clinicIntro}\n` + secs.map(s => `\n${s.title} (${s.rows.length})\n` + s.rows.map(r => cols.map(c => c[1](r)).join(' | ')).join('\n')).join('\n') + footText();
+  return { key: 'c:' + fac, to, cc, subject: `${fac} Billing Portal Action Items ${fmtShort(today())}`, html, text, who: fac, count: rs.length };
+}
+let CUR = null;
+function showEmail(e, editAct, editKey){
+  CUR = e;
+  const missing = !e.to.length;
+  openModal(`<h2 style="margin:0 0 10px;display:flex;gap:8px;align-items:center">Email: ${esc(e.who)}<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    ${missing ? `<div class="msg warn">No email address saved for ${esc(e.who)}. <button class="linkbtn" data-act="${editAct}" data-${editKey}="${esc(e.who)}">Add it</button> or fill in the To line after pasting.</div>` : ''}
+    <div class="hdrs"><b>To</b><span>${esc(e.to.join('; ')) || '<span class="muted">—</span>'}</span><b>Cc</b><span>${esc(e.cc.join('; ')) || '<span class="muted">—</span>'}</span><b>Subject</b><span>${esc(e.subject)}</span></div>
+    <div class="emailprev">${e.html}</div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="copyEmail">Copy email</button><button class="btn" data-act="copyAddr">Copy To / Cc</button><button class="btn" data-act="mailto" ${e.to.length ? '' : 'disabled'}>Open in Outlook</button><span class="grow"></span><button class="btn" data-act="markSent">Mark sent</button></div>
+    <div class="small muted" style="margin-top:6px">Copy email keeps the formatted table. Paste it into a new Outlook message. Open in Outlook starts the message with the addresses and subject filled in, then paste the body.</div>`);
+}
+async function copyRich(html, text){
+  try { if (window.ClipboardItem && navigator.clipboard?.write){ await navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]); return true; } } catch {}
+  try { const d = document.createElement('div'); d.contentEditable = 'true'; d.style.cssText = 'position:fixed;left:-9999px;top:0'; d.innerHTML = html; document.body.appendChild(d); const rg = document.createRange(); rg.selectNodeContents(d); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg); const ok = document.execCommand('copy'); sl.removeAllRanges(); d.remove(); if (ok) return true; } catch {}
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+// ---------- printable clinic action list ----------
+function printHTML(facs){
+  const blocks = facs.map(fac => {
+    const rs = ctrlRows().filter(r => r.fac === fac && routeOf(r.desc) === 'clinic'); if (!rs.length) return '';
+    return `<section><h1>${esc(fac)}: Billing Portal Action List</h1><div class="sub">Printed ${fmtD(today())} · ${rs.length} item${rs.length === 1 ? '' : 's'}</div>
+      ${clinicSections(rs).map(s => `<h2>${esc(s.title)}</h2><table><thead><tr><th class="cb">Done</th><th>Patient</th><th>MRN</th><th>DOS</th><th>Provider</th><th>Description</th><th>Due</th><th>Initials / date</th></tr></thead><tbody>
+        ${s.rows.map(r => `<tr><td class="cb">☐</td><td>${esc(pt(r))}</td><td>${esc(r.mrn)}</td><td>${fmtD(r.dos)}</td><td>${esc(r.prov)}</td><td>${esc(r.desc)}</td><td>${fmtD(r.due)}</td><td></td></tr>`).join('')}</tbody></table>`).join('')}
+      <div class="sig">Reviewed by ______________________ &nbsp; Date __________</div></section>`;
+  }).join('');
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Billing Portal Action List ${fmtD(today())}</title><style>
+    body{font:12px/1.35 "Segoe UI",Arial,sans-serif;color:#2b2622;margin:18px}
+    section{page-break-after:always} section:last-child{page-break-after:auto}
+    h1{font-size:18px;margin:0 0 2px} h2{font-size:13px;margin:14px 0 4px} .sub{color:#6f665c;margin-bottom:6px}
+    table{border-collapse:collapse;width:100%} th{background:#f1eadc;text-align:left;padding:5px 7px;border:1px solid #d8ccb4;font-size:11px}
+    td{padding:6px 7px;border:1px solid #e3d9c6} td.cb,th.cb{width:38px;text-align:center;font-size:14px} tr:nth-child(even) td{background:#fbf8f2}
+    .sig{margin-top:18px;color:#6f665c} @page{size:landscape;margin:12mm}
+  </style></head><body>${blocks || '<p>No clinic items.</p>'}</body></html>`;
+}
+function showPrint(fac){
+  const facs = fac ? [fac] : [...groupBy(ctrlRows().filter(r => routeOf(r.desc) === 'clinic'), 'fac').keys()].sort(byName);
+  const html = printHTML(facs);
+  openModal(`<h2 style="margin:0 0 10px;display:flex;gap:8px;align-items:center">Action list${fac ? ': ' + esc(fac) : 's: all locations'}<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <iframe class="print" id="printFrame" title="Printable action list"></iframe>
+    <div class="row" style="margin-top:10px"><button class="btn primary" data-act="doPrint">Print</button><button class="btn" data-act="dlPrint">Download</button></div>`);
+  const fr = $('#printFrame'); fr.srcdoc = html; S._print = html;
+}
+
+// ---------- modal / toast / busy ----------
+function openModal(html){ $('#sheet').innerHTML = html; $('#modal').hidden = false; setTimeout(() => $('#sheet .btn.primary, #sheet input, #sheet button')?.focus(), 30); }
+function closeModal(){ $('#modal').hidden = true; $('#sheet').innerHTML = ''; CUR = null; if (S._oc){ const r = S._oc.res; S._oc = null; r(false); } }
+function toast(kind, html){ $('#toast').innerHTML = ''; const el = document.createElement('div'); el.className = 'msg ' + kind; el.innerHTML = html; $('#toast').appendChild(el); setTimeout(() => el.remove(), kind === 'bad' ? 8000 : 2600); }
+function busy(on, msg){ $('#busy').hidden = !on; $('#busy').textContent = on && msg ? msg : 'Reading the workbook…'; }
+function editContact(kind, name){
+  const isP = kind === 'p'; const x = (isP ? S.cfg.providers : S.cfg.clinics)[name] || {};
+  openModal(`<h2 style="margin:0 0 10px;display:flex;gap:8px;align-items:center">${isP ? 'Provider' : 'Clinic'} contact: ${esc(name)}<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <label class="lbl" for="ceEmail">${isP ? 'Provider email' : 'Clinic email (group or front desk)'}</label><input class="fld" id="ceEmail" value="${esc(x.email)}">
+    ${isP ? `<label class="lbl" for="ceGreet">Greeting name</label><input class="fld" id="ceGreet" value="${esc(x.greet)}" placeholder="${esc(firstName(name))}">
+      <label class="lbl" for="ceSup">Physician supervisor cc (blank uses the default)</label><input class="fld" id="ceSup" value="${esc(x.sup)}">` : ''}
+    <label class="lbl" for="ceLeader">Practice leader cc</label><input class="fld" id="ceLeader" value="${esc(x.leader)}">
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="saveContact" data-kind="${kind}" data-name="${esc(name)}">Save</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+}
+
+// ---------- events ----------
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) { if (ev.target.id === 'modal') closeModal(); return; }
+  const a = b.dataset.act, v = b.dataset.v;
+  const A = {
+    tab: () => { S.tab = v; render(); window.scrollTo(0, 0); if (v === 'rep') scanSources().then(render).catch(e => toast('bad', esc(e.message || e))); },
+    buildIR: () => buildIR(v),
+    inc: () => editIncident(b.dataset.id),
+    theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); render(); },
+    wlAll: () => { S.wl = { mode: 'all' }; wlSave(); render(); },
+    wlNone: () => { S.wl = { mode: 'some', list: [] }; wlSave(); render(); },
+    wlToggle: () => { const f = b.dataset.f; const facs = [...new Set(S.rows.filter(inView).map(r => r.fac))];
+      let list = !S.wl || S.wl.mode === 'all' ? facs.slice() : S.wl.list.slice();
+      list = list.includes(f) ? list.filter(x => x !== f) : [...list, f];
+      S.wl = facs.every(x => list.includes(x)) ? { mode: 'all' } : { mode: 'some', list }; wlSave(); render(); },
+    fkAdd: async () => { S.cfg.focusKw = [...focusKw(), { label: 'New highlight', words: '' }]; await saveCfg(); render(); },
+    fkDel: async () => { const a = focusKw().slice(); a.splice(+v, 1); S.cfg.focusKw = a; await saveCfg(); render(); },
+    fkReset: async () => { S.cfg.focusKw = null; await saveCfg(); render(); toast('ok', 'Highlights reset.'); },
+    setStart: () => { try { localStorage.setItem('irStart', v); } catch {} render(); toast('ok', `${v === 'rep' ? 'Reports' : 'Clinic Dashboard'} will open first on this computer.`); },
+    renameCat: () => renameCat(b.dataset.c),
+    renameSave: async () => { if (!renameCheck()) { if (S._rn && S._rn.needEx && !($('#rnEx')?.value || '').trim()) toast('warn', 'Paste an example description first.'); return; } const oldN = b.dataset.c, newN = $('#rnNew').value.trim(); S._rn = null; closeModal(); if (newN !== oldN) await renameApply(oldN, newN); },
+    unrename: async () => { const m = Object.assign({}, S.cfg.rename); delete m[b.dataset.k]; S.cfg.rename = m; await saveCfg(); S.irCache = null; await reload(true); toast('ok', 'Rename undone. Rebuild a Filtered tab to update it.'); },
+    incSave: async () => { const id = b.dataset.id; const note = $('#incNote').value, st = $('#incStatus').value; closeModal(); await saveIncident(id, note, st); toast('ok', 'Saved.'); },
+    progEmail: () => progressEmail(),
+    workStatus: () => { S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: v }; S.tab = 'work'; render(); window.scrollTo(0, 0); },
+    drillFocus: () => { S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: v }; S.tab = 'work'; render(); window.scrollTo(0, 0); },
+    drillDesc: () => { S.f = { q: '', fac: '', prov: '', desc: v, nc: false, due: '', st: '' }; S.tab = 'work'; render(); window.scrollTo(0, 0); },
+    irEmail: () => showIrEmail(v),
+    buildER: () => buildER(),
+    erEmail: () => showErEmail(),
+    demoPart: async () => { const am = await S.store.readSheet(S.rep.ir.AM.sheet); const hi = findHeader(am, ['incident id', 'description', 'facility']);
+      const keep = am.filter((r, i) => i <= hi || Math.random() > (v === 'EOD' ? 0.3 : 0.15) || /Auth/i.test(r[7]));
+      await S.store.removeSheets([v]); await S.store.writeSheet(v, keep); if (S.irCache) delete S.irCache[v]; await scanSources(); await buildIR(v); },
+    ocSave: async () => { const o = S._oc; S._oc = null; const d = Object.assign({}, S.cfg.irDecide);
+      o.list.forEach((u, i) => { const val = $(`[data-oc="${i}"]`).value; d[u.key] = val.startsWith('map:') ? { act: 'map', cat: val.slice(4) } : { act: val }; });
+      S.cfg.irDecide = d; o.list.forEach(u => { if (d[u.key].act === 'exclude') S.cfg.ctrl[u.key] = false; }); await saveCfg(); closeModal(); o.res(true); },
+    ocCancel: () => closeModal(),
+    ocForget: async () => { const d = Object.assign({}, S.cfg.irDecide); delete d[b.dataset.k]; S.cfg.irDecide = d; S.irCache = null; await saveCfg(); render(); toast('ok', 'Forgotten. You\'ll be asked again next time.'); },
+    refresh: () => reload(false),
+    full: () => openFull(),
+    closeFull: () => { if (S.closeFull) S.closeFull(); },
+    setLoc: () => setLoc(b.dataset.f || ''),
+    drill: () => { S.f = { q: '', fac: b.dataset.fac || '', prov: b.dataset.prov || '', desc: b.dataset.desc || '', nc: false, due: '', st: '' }; S.tab = 'work'; render(); },
+    dueFilter: () => { S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: v, st: v === 'past' ? 'Needs review' : '' }; S.tab = 'work'; render(); },
+    sort: () => { S.sort = S.sort && S.sort.k === v ? (S.sort.d > 0 ? { k: v, d: -1 } : null) : { k: v, d: 1 }; render(); },
+    sortReset: () => { S.sort = null; render(); },
+    clearFilt: () => { S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '' }; render(); },
+    toggleNC: () => { S.f.nc = b.checked; render(); },
+    copyList: async () => { const rs = sorted(filtered()); const cols = [['Status', r => statusOf(r.id)], ['Notes', r => noteOf(r.id)], ['Clinic', r => r.fac], ['Provider', r => r.prov], ['MRN', r => r.mrn], ['Description', r => r.desc], ['Patient', pt], ['DOS', r => fmtD(r.dos)], ['Due', r => fmtD(r.due)], ['Incident ID', r => r.id]];
+      const ok = await copyRich(wrap(tableHTML(cols, rs)), [cols.map(c => c[0]).join('\t'), ...rs.map(r => cols.map(c => c[1](r)).join('\t'))].join('\n')); toast(ok ? 'ok' : 'bad', ok ? `Copied ${rs.length} rows.` : 'Copy was blocked by the browser.'); },
+    sigView: () => { S.sigView = v; render(); }, clinView: () => { S.clinView = v; render(); },
+    provEmail: () => showEmail(provEmail(b.dataset.p), 'editProv', 'p'),
+    clinicEmail: () => showEmail(clinicEmail(b.dataset.f), 'editClinic', 'f'),
+    editProv: () => editContact('p', b.dataset.p), editClinic: () => editContact('c', b.dataset.f),
+    saveContact: async () => {
+      const isP = b.dataset.kind === 'p'; const name = b.dataset.name; const bag = isP ? S.cfg.providers : S.cfg.clinics;
+      bag[name] = Object.assign({}, bag[name], { email: $('#ceEmail').value.trim(), leader: $('#ceLeader').value.trim() }, isP ? { greet: $('#ceGreet').value.trim(), sup: $('#ceSup').value.trim() } : {});
+      await saveCfg(); closeModal(); render(); toast('ok', 'Contact saved.');
+    },
+    copyEmail: async () => { const ok = await copyRich(CUR.html, CUR.text); toast(ok ? 'ok' : 'bad', ok ? 'Email copied. Paste it into Outlook.' : 'Copy was blocked by the browser.'); },
+    copyAddr: async () => { const t = `To: ${CUR.to.join('; ')}\nCc: ${CUR.cc.join('; ')}\nSubject: ${CUR.subject}`; try { await navigator.clipboard.writeText(t); toast('ok', 'Addresses copied.'); } catch { toast('bad', 'Copy was blocked by the browser.'); } },
+    mailto: async () => { await copyRich(CUR.html, CUR.text); const url = `mailto:${CUR.to.map(encodeURIComponent).join(';')}?cc=${CUR.cc.map(encodeURIComponent).join(';')}&subject=${encodeURIComponent(CUR.subject)}`;
+      try { if (window.Office && Office.context?.ui?.openBrowserWindow) Office.context.ui.openBrowserWindow(url); else window.open(url, '_blank'); } catch { location.href = url; } toast('ok', 'Body copied. Paste it into the new message.'); },
+    markSent: async () => { const k = CUR.key; await markSent(k); closeModal(); render(); toast('ok', 'Marked sent today.'); },
+    printClinic: () => showPrint(b.dataset.f),
+    doPrint: () => { const w = $('#printFrame').contentWindow; try { w.focus(); w.print(); } catch { A.dlPrint(); } },
+    dlPrint: () => { const a2 = document.createElement('a'); a2.href = URL.createObjectURL(new Blob([S._print], { type: 'text/html' })); a2.download = `action-list-${fmtShort(today())}.html`; a2.click(); },
+    closeModal: () => closeModal(),
+    useSheet: async () => { S.cfg.sheet = $('#pickSheet').value; await saveCfg(); reload(false); },
+    saveSheet: async () => { S.cfg.sheet = $('#sheetIn').value.trim() || 'auto'; await saveCfg(); reload(false); },
+    exportCfg: async () => { try { await navigator.clipboard.writeText(JSON.stringify(S.cfg)); toast('ok', 'Settings copied.'); } catch { openModal(`<h2>Copy these settings</h2><textarea class="fld" style="min-height:200px" readonly>${esc(JSON.stringify(S.cfg))}</textarea><div class="row" style="margin-top:10px"><button class="btn" data-act="closeModal">Done</button></div>`); } },
+    importCfg: () => openModal(`<h2>Paste settings</h2><textarea class="fld" id="cfgIn" style="min-height:200px" placeholder="Paste what Copy settings gave you"></textarea><div class="row" style="margin-top:10px"><button class="btn primary" data-act="applyCfg">Use these settings</button><button class="btn" data-act="closeModal">Cancel</button></div>`),
+    applyCfg: async () => { try { const c = JSON.parse($('#cfgIn').value); S.cfg = Object.assign({}, DEFAULTS, c); await saveCfg(); closeModal(); render(); toast('ok', 'Settings loaded.'); } catch { toast('bad', 'That doesn\'t look like copied settings.'); } },
+    resetSent: async () => { S.sent = {}; await S.store.setDoc('irSent', {}); render(); toast('ok', 'Sent marks cleared.'); },
+    dlManifest: () => downloadManifest(),
+    demo: () => { location.search = '?demo=1'; },
+  };
+  if (A[a]) await A[a]();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if (e.key === 'Enter' && e.target.matches && e.target.matches('.srow[data-act="inc"]')) e.target.click(); });
+document.addEventListener('input', e => {
+  if (e.target.id === 'rptNote' && S._rptMake){ S._rptMake(); return; }
+  if (e.target.id === 'rnNew' || e.target.id === 'rnEx'){ renameCheck(); return; }
+  if (e.target.id === 'q'){ S.f.q = e.target.value; clearTimeout(S._q); S._q = setTimeout(() => { const pos = e.target.selectionStart; render(); const q = $('#q'); if (q){ q.focus(); q.setSelectionRange(pos, pos); } }, 200); }
+});
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.id === 'locSel'){ setLoc(t.value); return; }
+  if (t.id === 'allTypesChk'){ S.allTypes = t.checked; try { localStorage.setItem('irAll', t.checked ? '1' : '0'); } catch {} render(); return; }
+  if (t.dataset.stat){ const id = t.dataset.stat; await saveIncident(id, noteOf(id), t.value, { keepStatus: true }); toast('ok', `Marked ${esc(t.value)}.`); return; }
+  if (t.dataset.upload){ const f = t.files && t.files[0]; t.value = ''; if (f) uploadPart(t.dataset.upload, f); return; }
+  if (t.dataset.fk !== undefined){ const a = focusKw().map(x => Object.assign({}, x)); a[+t.dataset.fk][t.dataset.k] = t.value.trim(); S.cfg.focusKw = a; await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.dataset.erkeep !== undefined){ const k = new Set(erKeep()); t.checked ? k.add(t.dataset.erkeep) : k.delete(t.dataset.erkeep); S.cfg.erKeep = [...k]; S.erCache = null; await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.dataset.filt){ S.f[t.dataset.filt] = t.value; render(); return; }
+  if (t.dataset.ctrl !== undefined){ if (t.checked) delete S.cfg.ctrl[t.dataset.ctrl]; else S.cfg.ctrl[t.dataset.ctrl] = false; await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.dataset.route !== undefined){ S.cfg.route[t.dataset.route] = t.value; await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.dataset.cfg){ S.cfg[t.dataset.cfg] = t.value.trim(); await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.dataset.prov){ const p = t.dataset.prov, k = t.dataset.k; const cur = Object.assign({}, S.cfg.providers[p]); cur[k] = t.value.trim(); cur.manual = Object.assign({}, cur.manual, { [k]: !!t.value.trim() }); S.cfg.providers[p] = cur; await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.dataset.dirupload){ const f = t.files && t.files[0]; t.value = ''; if (f) importDirectory(f); return; }
+  if (t.dataset.clinic){ const f = t.dataset.clinic; S.cfg.clinics[f] = Object.assign({}, S.cfg.clinics[f], { [t.dataset.k]: t.value.trim() }); await saveCfg(); toast('ok', 'Saved.'); return; }
+  if (t.id === 'codifyIn'){ S.cfg.codify = t.checked; await saveCfg(); toast('ok', 'Saved.'); }
+});
+
+// ---------- Reports: Donovan's daily IR update and weekly ER report ----------
+// IR rules (from Donovan's Filtered tabs): authorization items are not controllable; everything else is,
+// shortened to a category. Anything that matches no category is an outlier and we ask once.
+const IR_CATS = ['ER/HIM/NB/Missing Demo', 'ER/HIM/NB/Missing Insurance', 'ER/HIM/NB/Provider Out of Network', 'ER/HIM/NB/Missing / Non-Covered Dx', 'Incomplete Chart', 'Missing Signature'];
+const IR_RULES = [
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Auth/i, null],
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Missing\s*Demo/i, 'ER/HIM/NB/Missing Demo'],
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Missing\s*Insurance/i, 'ER/HIM/NB/Missing Insurance'],
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Provider\s*Out\s*of\s*Network/i, 'ER/HIM/NB/Provider Out of Network'],
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Missing\s*\/?\s*Non[\s-]*Covered\s*Dx/i, 'ER/HIM/NB/Missing / Non-Covered Dx'],
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Missing\s*\/\s*Incomplete\s*Chart/i, 'Incomplete Chart'],
+  [/^\W*ER\s*\/\s*HIM\s*\/\s*NB\s*\/\s*Missing\s*Provider\s*Signature/i, 'Missing Signature'],
+];
+// renamed descriptions: { originalName: newName }, applied wherever a description is shown, counted or written
+function dispCat(c){ const m = (S.cfg && S.cfg.rename) || {}; let x = c, n = 0; while (m[x] && m[x] !== x && n++ < 8) x = m[x]; return x; }
+const ocKey = d => String(d ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+function classifyIR(desc){ const c = classifyIR0(desc); if (c.cat) c.cat = dispCat(c.cat); if (c.key) c.key = c.key; return c; }
+function classifyIR0(desc){
+  const d = String(desc ?? ''); const t = d.trim().replace(/\.$/, '');
+  if (Object.values((S.cfg && S.cfg.rename) || {}).includes(t)) return { ctrl: true, cat: t }; // already renamed (e.g. read back from a Filtered tab)
+  if (IR_CATS.includes(t)) return { ctrl: true, cat: t };
+  if (t === AUTH_CAT) return { ctrl: false, cat: AUTH_CAT };
+  for (const [re, cat] of IR_RULES) if (re.test(d)) return cat ? { ctrl: true, cat } : { ctrl: false, cat: AUTH_CAT };
+  const dec = (S.cfg.irDecide || {})[ocKey(d)];
+  if (!dec) return { outlier: true, key: ocKey(d) };
+  if (dec.act === 'exclude') return { ctrl: false, cat: ocKey(d) };
+  return { ctrl: true, cat: dec.act === 'map' ? dec.cat : ocKey(d) }; // dispCat applied by classifyIR
+}
+const normLoc = f => String(f ?? '').trim().replace(/^[A-Z0-9]{2,10}\s*-\s*/, '').replace(/\s+(IV\s+Ketamine\s+)?(Office|Telehealth)\s*$/i, '').trim() || '(No facility)';
+
+const PARTS = [
+  { k: 'AM', label: 'Morning', line: 'Morning Update:', filtered: 'Filtered', pivot: 'Pivot', table: 'FilteredTable' },
+  { k: 'Midday', label: 'Midday', line: 'Noon Update:', filtered: 'Filtered Midday', pivot: 'Pivot Midday', table: 'FilteredTable_Midday' },
+  { k: 'EOD', label: 'End of day', line: 'EOD Update:', filtered: 'Filtered EOD', pivot: 'Pivot EOD', table: 'FilteredTable_EOD' },
+];
+const partOf = k => PARTS.find(p => p.k === k);
+const isMidName = n => /^(mid\s*day|noon)$/i.test(n.trim());
+const isEodName = n => /^(eod|pm|end of day)$/i.test(n.trim());
+const ER_KEEP_DEFAULT = ['E&M', 'NP', 'Psych', 'Not Coded - Missing Chart'];
+const REV_TYPE = {"99214":"E&M","90868":"TMS","90833":"Psych","90837":"Therapy","99213":"E&M","99215":"E&M","90792":"NP","99417":"ESK","G2083":"ESK-B&B","99416":"ESK","99415":"ESK","Nsmm31-60":"NoShow","90867":"TMS","90869":"TMS","90836":"Psych","96365":"IVK","99212":"E&M","90791":"NP","90853":"Therapy","Adhdtest":"Other","90838":"Psych","Therapyns":"NoShow","90834":"Therapy","90832":"Therapy","90870":"Other","G2082":"ESK-B&B","Ivket":"IVK","99355":"ESK","99354":"ESK","G2212":"ESK","963651":"IVK","ACCTMS":"TMS","99232":"Other","90847":"Therapy","96139":"Other","99211":"E&M","99205":"NP","99404":"Other","99204":"NP","S0013":"ESK-B&B","NoShowTMS":"NoShow","90889":"Other","90846":"Other","96138":"Other","99233":"Other","99203":"NP","90865":"Other","SCPON":"Other","99239":"Other","55555":"IVK","99202":"NP","Tmsns31-60":"NoShow","90785":"Therapy","K9999":"IVK","99201":"NP","Nsfchk":"Other","Ksrfu":"Other","Newptns":"NoShow","Ns90":"NoShow","Nsmm10-30":"NoShow","99242":"NP","0221U":"Other","96127":"Other","Comptx":"Other","Forms":"Other","99223":"Other","Ketobs":"Other","Nocharge":"Other","99442":"Other","99443":"Other","99441":"Other","90377":"Other","Returncall":"Other","SCPONNP":"Other","11111":"Other","S0014":"ESK-B&B","Mndflone":"TMS","NSMM3":"NoShow","MNDFL":"TMS","ADHDT":"Other","NS30M":"TMS","NBS07":"NBS07","ACTMS":"TMS","CTMSS":"TMS","J0013":"ESK-B&B"};
+const REV_AVG = { 'E&M': 156, 'ESK': 184, 'ESK-B&B': 1579, 'IVK': 677, 'NoShow': 171, 'Not Coded - Missing Chart': 156, 'NP': 251, 'Other': 156, 'Psych': 98, 'TMS': 354 };
+const REV_TYPE_LC = Object.fromEntries(Object.entries(REV_TYPE).map(([k, v]) => [k.toLowerCase(), v]));
+function revType(cpt){ const first = String(cpt ?? '').split(',')[0].trim().toLowerCase(); if (!first) return 'Not Coded - Missing Chart'; const n = String(Number(first)); return REV_TYPE_LC[first] || (n !== 'NaN' && REV_TYPE_LC[n]) || 'Not Coded - Missing Chart'; } // case-insensitive, like Excel's MATCH
+
+// header row: the first of the top rows that has all the wanted names
+function findHeader(values, names){
+  for (let i = 0; i < Math.min(values.length, 8); i++){ const h = values[i].map(norm); if (names.every(n => h.includes(n))) return i; }
+  return -1;
+}
+async function scanSources(){
+  const info = await S.store.sheetsInfo();
+  const R = { ir: {}, er: null, sheets: info.map(s => s.name) };
+  for (const s of info){
+    const isF = /^filtered/i.test(s.name) || /^pivot/i.test(s.name);
+    if (findHeader(s.top, ['incident id', 'description', 'facility']) >= 0 && !isF){
+      const k = isMidName(s.name) ? 'Midday' : isEodName(s.name) ? 'EOD' : 'AM';
+      if (k !== 'AM' || !R.ir.AM || /^main sheet$/i.test(s.name)) R.ir[k] = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
+    }
+    if (findHeader(s.top, ['incidentid', 'erstatus', 'note category']) >= 0 && !isF){
+      if (!R.er || s.rows > R.er.rows) R.er = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
+    }
+  }
+  R.has = n => R.sheets.includes(n);
+  S.rep = R; return R;
+}
+
+// ----- IR: raw tab -> classified rows -----
+async function readIR(part){
+  const src = S.rep.ir[part]; const values = await S.store.readSheet(src.sheet);
+  const hi = findHeader(values, ['incident id', 'description', 'facility']);
+  const hdrRaw = values[hi]; let a = 0, b = hdrRaw.length - 1;
+  while (a < b && ['', 'status', 'notes'].includes(norm(hdrRaw[a]))) a++;
+  while (b > a && String(hdrRaw[b] ?? '').trim() === '') b--;
+  const header = hdrRaw.slice(a, b + 1).map(x => String(x).trim());
+  const H = header.map(norm); const iD = H.indexOf('description'), iF = H.indexOf('facility');
+  const rows = [];
+  for (let r = hi + 1; r < values.length; r++){
+    const v = values[r].slice(a, b + 1); if (!v.some(x => x !== '' && x !== null)) continue;
+    rows.push({ v, desc: v[iD], fac: normLoc(v[iF]) });
+  }
+  return { header, rows, iD, iF };
+}
+function classifyAll(data){
+  const out = []; const unknown = new Map();
+  for (const r of data.rows){ const c = classifyIR(r.desc); if (c.outlier){ const u = unknown.get(c.key) || { key: c.key, sample: String(r.desc), n: 0, facs: new Set() }; u.n++; u.facs.add(r.fac); unknown.set(c.key, u); } r.c = c; }
+  return [...unknown.values()];
+}
+function askOutliers(list){
+  return new Promise(res => {
+    S._oc = { list, res };
+    const opt = (v, l) => `<option value="${esc(v)}">${esc(l)}</option>`;
+    openModal(`<h2 style="margin:0 0 6px;display:flex;gap:8px;align-items:center">Classify new descriptions<span class="grow"></span><button class="iconbtn" data-act="ocCancel" aria-label="Close">✕</button></h2>
+      <div class="small muted" style="margin-bottom:8px">${list.length === 1 ? 'This description doesn\'t' : 'These descriptions don\'t'} match a known category. Choose how each one counts. Your choice is remembered for future files.</div>
+      ${list.map((u, i) => `<div class="card" style="margin-bottom:8px"><div style="font-weight:700;white-space:pre-wrap;word-break:break-word">${esc(u.sample.slice(0, 240))}</div>
+        <div class="small muted" style="margin:2px 0 6px">${u.n} row${u.n === 1 ? '' : 's'} · ${[...u.facs].slice(0, 5).map(esc).join(', ')}</div>
+        <select class="fld" data-oc="${i}" aria-label="Classification">${opt('keep', 'Controllable: keep as its own line')}${IR_CATS.map(c => opt('map:' + c, 'Controllable: count as ' + c)).join('')}${opt('exclude', 'Not controllable: leave off Filtered')}</select></div>`).join('')}
+      <div class="row" style="margin-top:10px"><button class="btn primary" data-act="ocSave">Save and continue</button><button class="btn" data-act="ocCancel">Cancel</button></div>`);
+  });
+}
+async function resolveOutliers(data){
+  let unknown = classifyAll(data); if (!unknown.length) return true;
+  const ok = await askOutliers(unknown); if (!ok) return false;
+  classifyAll(data); return true;
+}
+function irCounts(rows){
+  const byDesc = new Map(), byLoc = new Map();
+  for (const r of rows){ if (!r.c.ctrl) continue; byDesc.set(r.c.cat, (byDesc.get(r.c.cat) || 0) + 1); const m = byLoc.get(r.fac) || new Map(); m.set(r.c.cat, (m.get(r.c.cat) || 0) + 1); byLoc.set(r.fac, m); }
+  return { byDesc, byLoc, total: [...byDesc.values()].reduce((a, b) => a + b, 0) };
+}
+const dateCols = header => header.map((h, i) => /^(dob|dos|due date|entry date|entrydt|last activity date|date.*)$/i.test(String(h).trim()) ? i : -1).filter(i => i >= 0);
+
+async function buildIR(part, opts = {}){
+  const P = partOf(part);
+  busy(true, `Reading the ${P.label.toLowerCase()} export…`);
+  try {
+    const data = await readIR(part);
+    busy(false);
+    if (!(await resolveOutliers(data))) return;
+    busy(true, 'Writing the Filtered tab and pivot…');
+    const keep = data.rows.filter(r => r.c.ctrl);
+    const iId = data.header.map(norm).indexOf('incident id');
+    const values = [['Status', 'Notes', ...data.header], ...keep.map(r => { const v = r.v.slice(); v[data.iD] = r.c.cat; v[data.iF] = r.fac; const id = String(r.v[iId] ?? '').trim(); return [statusOf(id), noteOf(id), ...v.map(x => x ?? '')]; })];
+    await S.store.removeSheets([P.pivot, P.filtered]); delete S.sidx[P.filtered];
+    await S.store.writeSheet(P.filtered, values, { col: 0, table: P.table, dateCols: dateCols(['', '', ...data.header]) });
+    let pivotOk = true;
+    try {
+      await S.store.buildPivots(P.pivot, [
+        { name: 'IRDesc_' + part, table: P.table, at: 'A3', rows: ['Description'], value: 'Prov Org', valueName: 'Count of Prov Org' },
+        { name: 'IRLoc_' + part, table: P.table, at: 'D3', rows: ['Facility', 'Description'], value: 'Prov Org', valueName: 'Count of Prov Org', sortDesc: true },
+      ]);
+    } catch (e){ pivotOk = false; console.error(e); }
+    S.built = Object.assign({}, S.store.getDoc('irBuilt') || {}, { [part]: new Date().toISOString() }); await S.store.setDoc('irBuilt', S.built);
+    S.irCache = Object.assign(S.irCache || {}, { [part]: data });
+    await S.store.activate(pivotOk ? P.pivot : P.filtered);
+    await scanSources(); busy(false); await reload(true);
+    toast(pivotOk ? 'ok' : 'warn', `${P.filtered}: ${keep.length} controllable of ${data.rows.length} rows.${pivotOk ? '' : ' The pivot couldn\'t be created in this version of Excel, so the email tables are built from the data instead.'}`);
+    if (!opts.noEmail) await showIrEmail(part);
+  } catch (e){ busy(false); toast('bad', 'Couldn\'t build: ' + esc(e.message || e)); console.error(e); }
+}
+async function irData(part){
+  if (S.irCache?.[part]) return S.irCache[part];
+  const d = await readIR(part); classifyAll(d); S.irCache = Object.assign(S.irCache || {}, { [part]: d }); return d;
+}
+
+// ----- IR recap email (pivot-style tables; EOD compares with AM) -----
+const PV = { tbl: 'border-collapse:collapse;font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:13px;margin:8px 0 16px', th: 'background:#DDEBF7;font-weight:700;text-align:left;padding:4px 10px;border-bottom:1px solid #9BC2E6;vertical-align:bottom', thn: 'background:#DDEBF7;font-weight:700;text-align:right;padding:4px 10px;border-bottom:1px solid #9BC2E6;vertical-align:bottom', td: 'padding:2px 10px', tdn: 'padding:2px 10px;text-align:right', grp: 'padding:3px 10px;font-weight:700;border-top:1px solid #9BC2E6', grpn: 'padding:3px 10px;font-weight:700;text-align:right;border-top:1px solid #9BC2E6', tot: 'padding:4px 10px;font-weight:700;background:#DDEBF7;border-top:2px solid #9BC2E6', totn: 'padding:4px 10px;font-weight:700;text-align:right;background:#DDEBF7;border-top:2px solid #9BC2E6' };
+function chg(now, before){
+  const d = now - before;
+  if (!d) return { h: '<span style="color:#6f665c">–</span>', t: '0' };
+  return d > 0 ? { h: `<span style="color:#b3261e;font-weight:700">▲ ${d}</span>`, t: '▲' + d } : { h: `<span style="color:#2f7a45;font-weight:700">▼ ${-d}</span>`, t: '▼' + (-d) };
+}
+function pivotTables(cur, base, valueLabel){
+  const cmp = !!base; const g = (m, k) => (m && m.get(k)) || 0;
+  const head = cmp ? `<th style="${PV.th}">Row Labels</th><th style="${PV.thn}">AM</th><th style="${PV.thn}">EOD</th><th style="${PV.thn}">vs AM</th>` : `<th style="${PV.th}">Row Labels</th><th style="${PV.thn}">${esc(valueLabel)}</th>`;
+  const line = (label, now, before, st, stn, indent) => { const lab = `<td style="${st}${indent ? ';padding-left:24px' : ''}">${esc(label)}</td>`; return cmp ? `<tr>${lab}<td style="${stn}">${before}</td><td style="${stn}">${now}</td><td style="${stn}">${chg(now, before).h}</td></tr>` : `<tr>${lab}<td style="${stn}">${now}</td></tr>`; };
+  const tline = (label, now, before) => cmp ? `${label}\t${before}\t${now}\t${chg(now, before).t}` : `${label}\t${now}`;
+  // table 1: by description
+  const descs = [...new Set([...cur.byDesc.keys(), ...(cmp ? base.byDesc.keys() : [])])].sort(byName);
+  let h1 = `<table style="${PV.tbl}"><tr>${head}</tr>`; let t1 = (cmp ? 'Row Labels\tAM\tEOD\tvs AM' : 'Row Labels\t' + valueLabel) + '\n';
+  for (const d of descs){ h1 += line(d, g(cur.byDesc, d), cmp ? g(base.byDesc, d) : 0, PV.td, PV.tdn); t1 += tline(d, g(cur.byDesc, d), cmp ? g(base.byDesc, d) : 0) + '\n'; }
+  h1 += line('Grand Total', cur.total, cmp ? base.total : 0, PV.tot, PV.totn) + '</table>'; t1 += tline('Grand Total', cur.total, cmp ? base.total : 0);
+  // table 2: by location, then description
+  const tot = (c, l) => c && c.byLoc.get(l) ? [...c.byLoc.get(l).values()].reduce((a, b) => a + b, 0) : 0;
+  const locs = [...new Set([...cur.byLoc.keys(), ...(cmp ? base.byLoc.keys() : [])])].sort((a, b) => tot(cur, b) - tot(cur, a) || tot(base, b) - tot(base, a) || byName(a, b));
+  let h2 = `<table style="${PV.tbl}"><tr>${head}</tr>`; let t2 = (cmp ? 'Row Labels\tAM\tEOD\tvs AM' : 'Row Labels\t' + valueLabel) + '\n';
+  for (const l of locs){
+    h2 += line(l, tot(cur, l), cmp ? tot(base, l) : 0, PV.grp, PV.grpn); t2 += tline(l, tot(cur, l), cmp ? tot(base, l) : 0) + '\n';
+    const ds = [...new Set([...(cur.byLoc.get(l)?.keys() || []), ...(cmp ? base.byLoc.get(l)?.keys() || [] : [])])].sort(byName);
+    for (const d of ds){ const n = g(cur.byLoc.get(l), d), b = cmp ? g(base.byLoc.get(l), d) : 0; h2 += line(d, n, b, PV.td, PV.tdn, true); t2 += tline('  ' + d, n, b) + '\n'; }
+  }
+  h2 += line('Grand Total', cur.total, cmp ? base.total : 0, PV.tot, PV.totn) + '</table>'; t2 += tline('Grand Total', cur.total, cmp ? base.total : 0);
+  return { html: h1 + h2, text: t1 + '\n\n' + t2 };
+}
+const subjDate = d => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
+async function showIrEmail(part){
+  const P = partOf(part); busy(true, 'Drafting the email…');
+  try {
+    const cur = irCounts((await irData(part)).rows);
+    const base = part === 'EOD' && S.rep.ir.AM ? irCounts((await irData('AM')).rows) : null;
+    busy(false);
+    const t = pivotTables(cur, base, 'Count of Prov Org');
+    const sum = base ? `<p style="margin:0 0 6px">${cur.total} controllable items open at end of day, ${cur.total === base.total ? 'unchanged from' : cur.total < base.total ? (base.total - cur.total) + ' fewer than' : (cur.total - base.total) + ' more than'} this morning (${base.total}).</p>` : '';
+    const sumT = base ? `${cur.total} controllable items open at end of day vs ${base.total} this morning.\n\n` : '';
+    rptEmail({ who: P.line.replace(':', ''), subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`, body: n => wrap(`<p style="margin:0 0 6px">${esc(P.line)}</p>${n ? `<p style="margin:0 0 8px">${esc(n).replace(/\n/g, '<br>')}</p>` : ''}${sum}${t.html}`), text: n => `${P.line}\n\n${n ? n + '\n\n' : ''}${sumT}${t.text}` });
+  } catch (e){ busy(false); toast('bad', 'Couldn\'t draft the email: ' + esc(e.message || e)); console.error(e); }
+}
+function rptEmail(o){
+  const to = splitEmails(S.cfg.rptTo), cc = splitEmails(S.cfg.rptCc);
+  const make = () => { const n = ($('#rptNote')?.value || '').trim(); CUR = { key: null, to, cc, subject: o.subject, html: o.body(n), text: o.text(n) + '\n', who: o.who }; const pv = $('#rptPrev'); if (pv) pv.innerHTML = CUR.html; };
+  openModal(`<h2 style="margin:0 0 10px;display:flex;gap:8px;align-items:center">${esc(o.who)} email<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <div class="hdrs"><b>To</b><span>${esc(to.join('; ')) || '<span class="muted">Set in Settings</span>'}</span><b>Cc</b><span>${esc(cc.join('; ')) || '—'}</span><b>Subject</b><span>${esc(o.subject)} <span class="muted small">(reply on the day's thread)</span></span></div>
+    <label class="lbl" for="rptNote">Note above the tables (optional)</label><textarea class="fld" id="rptNote" style="min-height:44px" placeholder="e.g. Awesome progress!"></textarea>
+    <div class="emailprev" id="rptPrev" style="margin-top:10px"></div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="copyEmail">Copy email</button><button class="btn" data-act="copyAddr">Copy To / Cc</button><button class="btn" data-act="mailto" ${to.length ? '' : 'disabled'}>Open in Outlook</button></div>
+    <div class="small muted" style="margin-top:6px">Copy email keeps the table formatting. Paste it into your reply on the day's IR Portal thread.</div>`);
+  S._rptMake = make; make();
+}
+
+// ----- weekly ER report -----
+const hIdx = (H, ...names) => { for (const n of names){ const i = H.indexOf(n); if (i >= 0) return i; } return -1; };
+async function readER(){
+  const values = await S.store.readSheet(S.rep.er.sheet);
+  const hi = findHeader(values, ['incidentid', 'erstatus', 'note category']);
+  let header = values[hi].map(x => String(x ?? '').trim()); let last = header.length - 1; while (last > 0 && !header[last]) last--; header = header.slice(0, last + 1);
+  const H = header.map(norm);
+  const ix = { fac: hIdx(H, 'facility'), st: hIdx(H, 'erstatus'), cat: hIdx(H, 'note category'), cpt: hIdx(H, 'cptcode', 'cpt code'), rt: hIdx(H, 'revenue type'), est: hIdx(H, 'estimated revenue'), dos: hIdx(H, 'dos') };
+  const rows = [];
+  for (let r = hi + 1; r < values.length; r++){
+    const v = values[r].slice(0, header.length); if (!v.some(x => x !== '' && x !== null)) continue;
+    const rt = (ix.rt >= 0 && String(v[ix.rt] ?? '').trim()) || revType(ix.cpt >= 0 ? v[ix.cpt] : '');
+    const d = ix.dos >= 0 ? toDate(v[ix.dos]) : null;
+    rows.push({ v, st: String(v[ix.st] ?? '').trim(), cat: String(v[ix.cat] ?? '').trim(), rt, est: (ix.est >= 0 && Number(v[ix.est])) || REV_AVG[rt] || '', loc: normLoc(ix.fac >= 0 ? v[ix.fac] : ''), year: d ? d.getFullYear() : '' });
+  }
+  return { header, ix, rows };
+}
+const erKeep = () => S.cfg.erKeep || ER_KEEP_DEFAULT;
+function erSelect(data){ const k = new Set(erKeep()); return data.rows.filter(r => /^open$/i.test(r.st) && /^auth missing\/expired$/i.test(r.cat) && k.has(r.rt)); }
+async function buildER(){
+  busy(true, 'Reading the ER export (large file, a few seconds)…');
+  try {
+    const data = await readER(); const sel = erSelect(data);
+    busy(true, 'Writing Filtered Export and the summary…');
+    const header = data.header.slice(); const addRT = data.ix.rt < 0, addEst = data.ix.est < 0;
+    if (addRT) header.push('Revenue Type'); if (addEst) header.push('Estimated Revenue'); header.push('Location', 'DOS Year');
+    const values = [header, ...sel.map(r => { const v = r.v.map(x => x ?? ''); if (!addRT) v[data.ix.rt] = r.rt; if (addRT) v.push(r.rt); if (addEst) v.push(r.est); v.push(r.loc, r.year); return v; })];
+    await S.store.removeSheets(['Filtered totals', 'Filtered Export']);
+    await S.store.writeSheet('Filtered Export', values, { col: 0, table: 'FilteredExportTable', dateCols: dateCols(header) });
+    let pivotOk = true;
+    try {
+      await S.store.buildPivots('Filtered totals', [
+        { name: 'ERRevType', table: 'FilteredExportTable', at: 'A3', rows: ['Note Category', 'Revenue Type'], cols: ['DOS Year'], value: header.find(h => norm(h) === 'incidentid'), valueName: 'Total Encounters' },
+        { name: 'ERLocation', table: 'FilteredExportTable', at: 'H3', rows: ['Location'], value: header.find(h => norm(h) === 'facility'), valueName: 'Count of Facility' },
+      ]);
+    } catch (e){ pivotOk = false; console.error(e); }
+    S.erCache = { data, sel };
+    await S.store.activate(pivotOk ? 'Filtered totals' : 'Filtered Export');
+    await scanSources(); busy(false); render();
+    toast(pivotOk ? 'ok' : 'warn', `Filtered Export: ${sel.length} open non-interventional auth items of ${data.rows.length} rows.${pivotOk ? '' : ' The pivot couldn\'t be created, so the email tables are built from the data.'}`);
+    showErEmail();
+  } catch (e){ busy(false); toast('bad', 'Couldn\'t build: ' + esc(e.message || e)); console.error(e); }
+}
+async function showErEmail(){
+  if (!S.erCache){ busy(true, 'Reading the ER export…'); try { const data = await readER(); S.erCache = { data, sel: erSelect(data) }; } finally { busy(false); } }
+  const sel = S.erCache.sel; const years = [...new Set(sel.map(r => r.year).filter(Boolean))].sort();
+  const types = [...new Set(sel.map(r => r.rt))].sort(byName);
+  const n = (t, y) => sel.filter(r => r.rt === t && (y === undefined || r.year === y)).length;
+  const B = 'border:1px solid #7f7f7f;padding:3px 10px', HB = B + ';background:#1F3A93;color:#fff;font-weight:700', HL = B + ';background:#FCE4D6;font-weight:700';
+  let h1 = `<table style="border-collapse:collapse;font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:13px;margin:8px 0 16px"><tr><td style="${HB}"></td><td style="${HB}"></td>${years.map(y => `<td style="${HB};text-align:center">${y}</td>`).join('')}<td style="${HB};text-align:center">Total</td></tr>
+    <tr><td style="${HL}">Note Category</td><td style="${HL}">Revenue Type</td>${years.map(() => `<td style="${HL}"></td>`).join('')}<td style="${HL}"></td></tr>`;
+  types.forEach((t, i) => { h1 += `<tr><td style="${B};font-weight:700">${i ? '' : 'Auth Missing/Expired'}</td><td style="${B}">${esc(t)}</td>${years.map(y => `<td style="${B};text-align:right">${n(t, y)}</td>`).join('')}<td style="${B};text-align:right">${n(t)}</td></tr>`; });
+  h1 += `<tr><td style="${HL}">Auth Missing/Expired Total</td><td style="${HL}"></td>${years.map(y => `<td style="${HL};text-align:right">${sel.filter(r => r.year === y).length}</td>`).join('')}<td style="${HL};text-align:right">${sel.length}</td></tr></table>`;
+  const locs = [...groupBy(sel, 'loc').entries()].sort((a, b) => byName(a[0], b[0]));
+  let h2 = `<table style="border-collapse:collapse;font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:13px;margin:8px 0 16px"><tr><td style="${HL}">Row Labels</td><td style="${HL};text-align:right">Count of Facility</td></tr>${locs.map(([l, rs]) => `<tr><td style="padding:2px 10px">${esc(l)}</td><td style="padding:2px 10px;text-align:right">${rs.length}</td></tr>`).join('')}<tr><td style="${HL}">Grand Total</td><td style="${HL};text-align:right">${sel.length}</td></tr></table>`;
+  const t1 = ['Revenue Type\t' + years.join('\t') + '\tTotal', ...types.map(t => `${t}\t${years.map(y => n(t, y)).join('\t')}\t${n(t)}`), `Total\t${years.map(y => sel.filter(r => r.year === y).length).join('\t')}\t${sel.length}`].join('\n');
+  const t2 = ['Location\tCount', ...locs.map(([l, rs]) => `${l}\t${rs.length}`), `Grand Total\t${sel.length}`].join('\n');
+  const intro = S.cfg.erIntro;
+  rptEmail({ who: 'Weekly auth (ER report)', subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`, body: note => wrap(`${note ? `<p style="margin:0 0 8px">${esc(note).replace(/\n/g, '<br>')}</p>` : ''}<p style="margin:0 0 8px">${esc(intro)}</p>${h1}${h2}`), text: note => `${note ? note + '\n\n' : ''}${intro}\n\n${t1}\n\n${t2}` });
+}
+
+// ----- file upload (Midday / EOD) -----
+function loadXLSX(){
+  if (window.XLSX) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = res; s.onerror = () => rej(new Error('Couldn\'t load the file reader. Check the internet connection.')); document.head.appendChild(s); });
+}
+async function uploadPart(part, file){
+  busy(true, `Reading ${file.name}…`);
+  try {
+    await loadXLSX();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
+    let values = null;
+    for (const n of wb.SheetNames){ const ws = wb.Sheets[n]; const v = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true }); if (findHeader(v, ['incident id', 'description', 'facility']) >= 0){ const st = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s : { r: 0, c: 0 }; values = [...Array(st.r).fill(null).map(() => []), ...v.map(r => [...Array(st.c).fill(''), ...r])]; break; } }
+    if (!values) throw new Error('That file has no sheet with Incident ID, Description and Facility headers.');
+    const w = Math.max(...values.slice(0, 10).map(r => r.length)); values = values.map(r => { const x = r.slice(0, w); while (x.length < w) x.push(''); return x; });
+    busy(true, `Adding the ${part} tab…`);
+    await S.store.removeSheets([part]); delete S.sidx[part];
+    await S.store.writeSheet(part, values, { col: 0, dateCols: dateCols(values[findHeader(values, ['incident id', 'description', 'facility'])]) });
+    if (S.irCache) delete S.irCache[part];
+    const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [part]); } catch (e){ console.error(e); } }
+    await scanSources(); busy(false);
+    await buildIR(part);
+  } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); }
+}
+
+// ----- view -----
+function repHTML(){
+  const R = S.rep;
+  if (!R) return '<div class="card empty">Looking for report tabs…</div>';
+  const built = S.store.getDoc('irBuilt') || {};
+  const when = k => built[k] ? new Date(built[k]).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  const partRow = P => {
+    const src = R.ir[P.k]; const done = src && R.has(P.filtered);
+    return `<div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="grow"><div class="name">${esc(P.label)}${P.k === 'EOD' ? ' <span class="small muted">· compared with AM</span>' : ''}</div>
+      <div class="small muted">${src ? `${esc(src.sheet)} tab · ${src.rows} rows${done ? ` · ${esc(P.filtered)} built ${when(P.k)}` : ''}` : P.k === 'AM' ? 'No IR Portal export tab found in this workbook.' : 'Not added yet.'}</div></div>
+      ${src ? `<button class="btn sm primary" data-act="buildIR" data-v="${P.k}">${done ? 'Rebuild' : 'Build'} Filtered + pivot + email</button>${done ? `<button class="btn sm" data-act="irEmail" data-v="${P.k}">Email only</button>` : ''}` : ''}
+      ${P.k !== 'AM' && R.ir.AM ? `<label class="btn sm" style="display:inline-flex;align-items:center">${src ? 'Replace' : 'Upload'} ${esc(P.label.toLowerCase())} export…<input type="file" data-upload="${P.k}" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>` : ''}
+      ${P.k !== 'AM' && R.ir.AM && S.store.demo ? `<button class="btn sm" data-act="demoPart" data-v="${P.k}">Use sample ${esc(P.label.toLowerCase())} data</button>` : ''}</div>`;
+  };
+  const dec = Object.entries(S.cfg.irDecide || {});
+  return `<div class="row noprint" style="margin-bottom:8px"><span class="grow"></span>${startTab() === 'rep' ? '<span class="small muted">Reports opens first on this computer.</span> <button class="linkbtn" data-act="setStart" data-v="dash">Open Clinic Dashboard first instead</button>' : '<button class="btn sm" data-act="setStart" data-v="rep">Make Reports my default view</button>'}</div>
+    <div class="card"><h2>Daily IR Portal update<span class="sp"></span><span class="small muted">one tab per day part</span></h2>
+      ${PARTS.map(partRow).join('')}
+      <div class="small muted" style="margin-top:8px">Each build rewrites that day part's Filtered tab (controllable items only, starting in column C) and its pivot tab, then drafts the update email. Locations combine Office and Telehealth.</div></div>
+    <div class="card"><h2>Weekly ER report</h2>
+      ${R.er ? `<div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="grow"><div class="name">${esc(R.er.sheet)} tab</div><div class="small muted">${R.er.rows.toLocaleString()} rows${R.has('Filtered Export') ? ' · Filtered Export built' : ''}</div></div>
+        <button class="btn sm primary" data-act="buildER">${R.has('Filtered Export') ? 'Rebuild' : 'Build'} Filtered Export + summary + email</button>${R.has('Filtered Export') ? '<button class="btn sm" data-act="erEmail">Email only</button>' : ''}</div>
+        <div class="small muted" style="margin-top:8px">Keeps open "Auth Missing/Expired" items with revenue type ${erKeep().map(esc).join(', ')} (non-interventional). Revenue type comes from the first CPT code when the export doesn't have it.</div>` : '<div class="empty">No ER export tab in this workbook. Open the Monday ER report to use this.</div>'}</div>
+    <div class="card"><h2>How items are classified</h2>
+      <div class="small">Not controllable: every <b>ER/HIM/NB/Authorization…</b> item. Controllable, shortened to: ${IR_CATS.map(c => `<button class="pill" style="margin:2px;cursor:pointer" data-act="renameCat" data-c="${esc(dispCat(c))}" title="Rename">${esc(dispCat(c))} ✎</button>`).join('')}</div>
+      ${Object.keys(S.cfg.rename || {}).length ? `<h3>Renamed</h3><table class="set"><tbody>${Object.entries(S.cfg.rename).map(([a, b]) => `<tr><td>${esc(a)}</td><td>→ ${esc(b)}</td><td><button class="linkbtn" data-act="unrename" data-k="${esc(a)}">Undo</button></td></tr>`).join('')}</tbody></table>` : ''}
+      <h3>Your decisions on other descriptions</h3>
+      ${dec.length ? `<table class="set"><tbody>${dec.map(([k, d]) => `<tr><td style="word-break:break-word">${esc(k)}</td><td>${d.act === 'exclude' ? 'Not controllable' : d.act === 'map' ? 'Counts as ' + esc(d.cat) : 'Own line'}</td><td><button class="linkbtn" data-act="ocForget" data-k="${esc(k)}">Forget</button></td></tr>`).join('')}</tbody></table>` : '<div class="small muted">None yet. You\'ll be asked the first time a new description shows up.</div>'}</div>`;
+}
+
+// ---------- install page / manifest ----------
+function notInExcelHTML(){
+  return `<main style="max-width:640px"><div class="card"><h2><span class="brand" style="flex:0"><span class="dot">IR</span></span> IR Portal Tracker</h2>
+    <p>This page is an Excel add-in. It runs inside the IR Portal workbook and reads its Filtered tab.</p>
+    <h3>Install it (once)</h3>
+    <ol><li>Click <b>Download manifest</b> below. It's set up for this web address.</li>
+      <li>Open the workbook in Excel on the web → <b>Home → Add-ins → More Add-ins → My Add-ins → Upload My Add-in</b>, and choose the file.</li>
+      <li>An <b>IR Portal Tracker</b> button appears on the Home tab.</li></ol>
+    <div class="row"><button class="btn primary" data-act="dlManifest">Download manifest</button><button class="btn" data-act="demo">Try the demo</button></div>
+    <div class="small muted" style="margin-top:10px">Patient data stays in the workbook. This site only serves the app's code.</div></div></main>`;
+}
+function downloadManifest(){
+  const base = location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, ''); const host = new URL(base).origin;
+  const x = MANIFEST.replaceAll('__BASE__', base.replace(/\/$/, '')).replaceAll('__HOST__', host);
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x], { type: 'application/xml' })); a.download = 'ir-portal-tracker-manifest.xml'; a.click();
+}
+const MANIFEST = `<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
+  <Id>7c3e9a52-4b1d-4f6e-9a20-3d8e1b5c62f4</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Mindful Health Solutions</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  <DisplayName DefaultValue="IR Portal Tracker"/>
+  <Description DefaultValue="Billing portal worklist, provider signature reminders and clinic action lists for the IR Portal Filtered tab."/>
+  <IconUrl DefaultValue="__BASE__/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="__BASE__/assets/icon-64.png"/>
+  <SupportUrl DefaultValue="__BASE__/taskpane.html"/>
+  <AppDomains>
+    <AppDomain>__HOST__</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Workbook"/>
+  </Hosts>
+  <Requirements>
+    <Sets DefaultMinVersion="1.1">
+      <Set Name="ExcelApi" MinVersion="1.7"/>
+    </Sets>
+  </Requirements>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="__BASE__/taskpane.html"/>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title"/>
+            <Description resid="GetStarted.Description"/>
+            <LearnMoreUrl resid="Taskpane.Url"/>
+          </GetStarted>
+          <FunctionFile resid="Commands.Url"/>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="IRP.Group">
+                <Label resid="Group.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16"/>
+                  <bt:Image size="32" resid="Icon.32"/>
+                  <bt:Image size="80" resid="Icon.80"/>
+                </Icon>
+                <Control xsi:type="Button" id="IRP.Open">
+                  <Label resid="Button.Label"/>
+                  <Supertip>
+                    <Title resid="Button.Label"/>
+                    <Description resid="Button.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16"/>
+                    <bt:Image size="32" resid="Icon.32"/>
+                    <bt:Image size="80" resid="Icon.80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>Office.AutoShowTaskpaneWithDocument</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="__BASE__/assets/icon-16.png"/>
+        <bt:Image id="Icon.32" DefaultValue="__BASE__/assets/icon-32.png"/>
+        <bt:Image id="Icon.80" DefaultValue="__BASE__/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="__BASE__/taskpane.html"/>
+        <bt:Url id="Commands.Url" DefaultValue="__BASE__/commands.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="IR Portal Tracker is ready"/>
+        <bt:String id="Group.Label" DefaultValue="IR Portal"/>
+        <bt:String id="Button.Label" DefaultValue="IR Portal Tracker"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Open IR Portal Tracker from the Home tab."/>
+        <bt:String id="Button.Tooltip" DefaultValue="Open the IR Portal Tracker: worklist, signature reminders and clinic action lists."/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
+`;
+
+// ---------- full screen: an Office dialog; the pane stays open and does the Excel work ----------
+const CH = 12000;
+function sendChunks(fn, obj){ const s = JSON.stringify(obj); const id = Math.random().toString(36).slice(2); const n = Math.max(1, Math.ceil(s.length / CH)); for (let i = 0; i < n; i++) fn(JSON.stringify({ c: id, i, n, d: s.slice(i * CH, (i + 1) * CH) })); }
+function makeRx(handler){ const buf = {}; return str => { let m; try { m = JSON.parse(str); } catch { return; } if (!m || !m.c) return; const b = buf[m.c] || (buf[m.c] = []); b[m.i] = m.d; if (b.filter(x => x != null).length === m.n){ delete buf[m.c]; try { handler(JSON.parse(b.join(''))); } catch (e){ console.error(e); } } }; }
+function RemoteStore(){
+  const pend = new Map(); let docs = {}; let onChanged = null;
+  const rx = makeRx(m => { if (m.rid && pend.has(m.rid)){ const p = pend.get(m.rid); pend.delete(m.rid); m.ok ? p.res(m.res) : p.rej(new Error(m.err)); } else if (m.ev === 'changed' && onChanged) onChanged(); });
+  Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, a => rx(a.message));
+  const up = obj => sendChunks(s => Office.context.ui.messageParent(s), obj);
+  const call = (op, args) => new Promise((res, rej) => { const rid = Math.random().toString(36).slice(2); pend.set(rid, { res, rej }); up({ rid, op, args }); setTimeout(() => { if (pend.has(rid)){ pend.delete(rid); rej(new Error('Excel didn\'t answer. Keep the IR Portal Tracker panel open behind this window, then try again.')); } }, 45000); });
+  S.closeFull = () => up({ ev: 'close' });
+  return {
+    live: true, remote: true,
+    async load(){ const d = await call('load'); docs = d.docs || {}; return d; },
+    getDoc: k => docs[k] ?? null,
+    async setDoc(k, v){ docs[k] = v; await call('setDoc', [k, v]); },
+    sheetsInfo: () => call('sheetsInfo', []), readSheet: n => call('readSheet', [n]), removeSheets: ns => call('removeSheets', [ns]),
+    writeSheet: (n, v, o) => call('writeSheet', [n, v, o]), writeCells: (n, c, k) => call('writeCells', [n, c, k]), refreshPivots: () => call('refreshPivots', []), insertCols: (n, k) => call('insertCols', [n, k]), buildPivots: (n, sp) => call('buildPivots', [n, sp]), activate: n => call('activate', [n]),
+    watch(cb){ onChanged = cb; },
+  };
+}
+let DLG = null;
+function openFull(){
+  if (DLG) return;
+  const url = location.href.replace(/[?#].*$/, '') + '?mode=dialog';
+  Office.context.ui.displayDialogAsync(url, { height: 96, width: 96, displayInIframe: true }, res => {
+    if (res.status !== Office.AsyncResultStatus.Succeeded){ toast('bad', 'Couldn\'t open full screen: ' + esc(res.error?.message || '')); return; }
+    DLG = res.value;
+    const reply = obj => { try { sendChunks(s => DLG && DLG.messageChild(s), obj); } catch (e){ console.error(e); } };
+    const rx = makeRx(async m => {
+      if (m.ev === 'close'){ try { DLG.close(); } catch {} DLG = null; loadCfg(); reload(true); return; }
+      const { rid, op, args } = m;
+      try {
+        let res;
+        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes') }; }
+        else if (['setDoc', 'sheetsInfo', 'readSheet', 'removeSheets', 'writeSheet', 'writeCells', 'insertCols', 'refreshPivots', 'buildPivots', 'activate'].includes(op)) res = await S.store[op](...(args || []));
+        else throw new Error('Unknown request');
+        reply({ rid, ok: true, res: res ?? null });
+      } catch (e){ reply({ rid, ok: false, err: e.message || String(e) }); }
+    });
+    DLG.addEventHandler(Office.EventType.DialogMessageReceived, a => rx(a.message));
+    DLG.addEventHandler(Office.EventType.DialogEventReceived, () => { DLG = null; loadCfg(); reload(true); });
+    S.notifyDialog = () => reply({ ev: 'changed' });
+  });
+}
+
+(function boot(){
+  const demo = true;
+  S.mode = /[?&]mode=dialog\b/.test(location.search) ? 'dialog' : demo ? 'demo' : 'pane';
+  const start = store => { S.store = store; reload(true).then(async () => { try { await scanSources(); if ((!S.rows.length || S.loadErr) && (S.rep.ir.AM || S.rep.er)) S.tab = 'rep'; render(); } catch (e){ console.error(e); } }).then(() => store.watch?.(() => { clearTimeout(S._w); S._w = setTimeout(() => { if (DLG && S.notifyDialog){ S.notifyDialog(); return; } if ($('#modal').hidden) reload(true); }, 1500); })); };
+  if (S.mode === 'dialog'){ if (typeof Office === 'undefined'){ $('#app').innerHTML = notInExcelHTML(); return; } Office.onReady(() => start(RemoteStore())); return; }
+  if (demo){ start(DemoStore()); return; }
+  if (typeof Office === 'undefined'){ $('#app').innerHTML = notInExcelHTML(); return; }
+  let settled = false;
+  Office.onReady(info => { settled = true; if (info.host === Office.HostType.Excel){ try { S.canFull = Office.context.requirements.isSetSupported('DialogApi', '1.2'); } catch { S.canFull = false; } start(OfficeStore()); } else $('#app').innerHTML = notInExcelHTML(); });
+  setTimeout(() => { if (!settled) $('#app').innerHTML = notInExcelHTML(); }, 4000);
+})();
+</script>
+</body>
+</html>
