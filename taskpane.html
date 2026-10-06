@@ -366,15 +366,18 @@ function OfficeStore(){
         if (opts.table){ const t = ws.tables.add(ws.getRangeByIndexes(0, c0, Math.max(2, values.length), w), true); t.name = opts.table; t.style = 'TableStyleLight9'; }
         else ws.getRangeByIndexes(0, c0, 1, w).format.font.bold = true;
         ws.freezePanes.freezeRows(1);
+        if (opts.after){ const a = ctx.workbook.worksheets.getItemOrNullObject(opts.after); a.load('position'); await ctx.sync(); if (!a.isNullObject) ws.position = a.position + 1; }
         ws.getRangeByIndexes(0, c0, Math.min(values.length, 400), w).format.autofitColumns();
         await ctx.sync();
       });
     },
-    async buildPivots(sheet, specs){
+    async buildPivots(sheet, specs, opts = {}){
       if (!Office.context.requirements.isSetSupported('ExcelApi', '1.8')) throw new Error('PivotTables need a newer Excel');
       return Excel.run(async ctx => {
-        const old = ctx.workbook.worksheets.getItemOrNullObject(sheet); await ctx.sync(); if (!old.isNullObject){ old.delete(); await ctx.sync(); }
-        const ws = ctx.workbook.worksheets.add(sheet); await ctx.sync();
+        let ws;
+        if (opts.existing) ws = ctx.workbook.worksheets.getItem(sheet);
+        else { const old = ctx.workbook.worksheets.getItemOrNullObject(sheet); await ctx.sync(); if (!old.isNullObject){ old.delete(); await ctx.sync(); } ws = ctx.workbook.worksheets.add(sheet); }
+        await ctx.sync();
         for (const sp of specs){
           const pt = ws.pivotTables.add(sp.name, ctx.workbook.tables.getItem(sp.table), ws.getRange(sp.at));
           for (const f of sp.rows) pt.rowHierarchies.add(pt.hierarchies.getItem(f));
@@ -386,6 +389,7 @@ function OfficeStore(){
         }
       });
     },
+    async renameSheet(from, to){ return Excel.run(async ctx => { const t = ctx.workbook.worksheets.getItemOrNullObject(to); await ctx.sync(); if (!t.isNullObject){ t.delete(); await ctx.sync(); } ctx.workbook.worksheets.getItem(from).name = to; await ctx.sync(); }); },
     async activate(name){ return Excel.run(async ctx => { const w = ctx.workbook.worksheets.getItemOrNullObject(name); await ctx.sync(); if (!w.isNullObject){ w.activate(); await ctx.sync(); } }); },
     watch(cb){
       Excel.run(async ctx => { ctx.workbook.worksheets.onChanged.add(() => { cb(); return Promise.resolve(); }); await ctx.sync(); }).catch(() => {});
@@ -446,7 +450,8 @@ function DemoStore(){
     async refreshPivots(){},
     async insertCols(n, k){ book.set(n, book.get(n).map(r => [...Array(k).fill(''), ...r])); },
     async writeSheet(n, v, o = {}){ book.set(n, v.map(r => [...Array(o.col || 0).fill(''), ...r])); },
-    async buildPivots(n, specs){ book.set(n, [['(PivotTables: ' + specs.map(x => x.name).join(', ') + ')']]); },
+    async buildPivots(n, specs, o = {}){ if (!o.existing) book.set(n, [['(PivotTables: ' + specs.map(x => x.name).join(', ') + ')']]); },
+    async renameSheet(a, b2){ const v = book.get(a); if (!v) return; const e = [...book.entries()].filter(([k]) => k !== b2).map(([k, x]) => k === a ? [b2, x] : [k, x]); book.clear(); e.forEach(([k, x]) => book.set(k, x)); },
     async activate(){},
   };
 }
@@ -457,7 +462,7 @@ async function reload(quiet){
     if (!S.cfg) loadCfg();
     try { await scanSources(); } catch (e){ console.error(e); }
     const auto = !S.cfg.sheet || ['auto', 'filtered'].includes(norm(S.cfg.sheet));
-    const latest = S.rep && (S.rep.ir.EOD || S.rep.ir.Midday || S.rep.ir.AM);
+    const latest = S.rep && (S.rep.ir.EOD || S.rep.ir.Noon || S.rep.ir.AM);
     const d = await S.store.load(auto ? (latest ? latest.sheet : 'Filtered') : S.cfg.sheet);
     if (S.store.remote) loadCfg(); // full-screen window: use the panel's saved settings
     S.notes = Object.assign({}, S.store.getDoc('irNotes') || {});
@@ -869,7 +874,7 @@ function setHTML(){
       <div class="row" style="margin-top:6px"><button class="btn sm" data-act="fkAdd">Add highlight</button><button class="linkbtn" data-act="fkReset">Reset to Tx report / Infusion note / BH Master</button></div></div>
     <div class="card"><h2>Default view</h2><div class="small muted" style="margin-bottom:6px">What opens first on this computer. Each person sets their own.</div>
       <div class="seg" role="group" aria-label="Default view">${[['dash', 'Clinic Dashboard'], ['rep', 'Reports']].map(([k, l]) => `<button data-act="setStart" data-v="${k}" aria-pressed="${startTab() === k}">${l}</button>`).join('')}</div></div>
-    <div class="card"><h2>Data source</h2><label class="lbl" for="sheetIn">Tab the dashboard reads ("auto" = the latest day-part export: EOD, then Midday, then AM)</label>
+    <div class="card"><h2>Data source</h2><label class="lbl" for="sheetIn">Tab the dashboard reads ("auto" = the latest day-part export: EOD, then Noon, then AM)</label>
       <div class="row"><input class="fld grow" id="sheetIn" value="${esc(c.sheet)}" list="sheetList"><datalist id="sheetList">${(S.sheets || []).map(n => `<option value="${esc(n)}">`).join('')}</datalist><button class="btn" data-act="saveSheet">Read it</button></div>
       <label class="chk" style="margin-top:10px"><input type="checkbox" id="codifyIn" ${c.codify ? 'checked' : ''}> Use codified patient IDs (SMIJOH) in emails, lists and printouts</label></div>
   </div><div>
@@ -1026,7 +1031,7 @@ document.addEventListener('click', async ev => {
     erEmail: () => showErEmail(),
     demoPart: async () => { const am = await S.store.readSheet(S.rep.ir.AM.sheet); const hi = findHeader(am, ['incident id', 'description', 'facility']);
       const keep = am.filter((r, i) => i <= hi || Math.random() > (v === 'EOD' ? 0.3 : 0.15) || /Auth/i.test(r[7]));
-      await S.store.removeSheets([v]); await S.store.writeSheet(v, keep); if (S.irCache) delete S.irCache[v]; await scanSources(); await buildIR(v); },
+      await S.store.removeSheets([partOf(v).raw]); await S.store.writeSheet(partOf(v).raw, keep); if (S.irCache) delete S.irCache[v]; await scanSources(); await buildIR(v); },
     ocSave: async () => { const o = S._oc; S._oc = null; const d = Object.assign({}, S.cfg.irDecide);
       o.list.forEach((u, i) => { const val = $(`[data-oc="${i}"]`).value; d[u.key] = val.startsWith('map:') ? { act: 'map', cat: val.slice(4) } : { act: val }; });
       S.cfg.irDecide = d; o.list.forEach(u => { if (d[u.key].act === 'exclude') S.cfg.ctrl[u.key] = false; }); await saveCfg(); closeModal(); o.res(true); },
@@ -1128,13 +1133,14 @@ function classifyIR0(desc){
 const normLoc = f => String(f ?? '').trim().replace(/^[A-Z0-9]{2,10}\s*-\s*/, '').replace(/\s+(IV\s+Ketamine\s+)?(Office|Telehealth)\s*$/i, '').trim() || '(No facility)';
 
 const PARTS = [
-  { k: 'AM', label: 'Morning', line: 'Morning Update:', filtered: 'Filtered', pivot: 'Pivot', table: 'FilteredTable' },
-  { k: 'Midday', label: 'Midday', line: 'Noon Update:', filtered: 'Filtered Midday', pivot: 'Pivot Midday', table: 'FilteredTable_Midday' },
-  { k: 'EOD', label: 'End of day', line: 'EOD Update:', filtered: 'Filtered EOD', pivot: 'Pivot EOD', table: 'FilteredTable_EOD' },
+  { k: 'AM', label: 'AM', line: 'Morning Update:', raw: 'AM Raw Data', filtered: 'AM Filtered + Pivot', table: 'FilteredTable_AM' },
+  { k: 'Noon', label: 'Noon', line: 'Noon Update:', raw: 'Noon Raw Data', filtered: 'Noon Filtered + Pivot', table: 'FilteredTable_Noon' },
+  { k: 'EOD', label: 'EOD', line: 'EOD Update:', raw: 'EOD Raw Data', filtered: 'EOD Filtered + Pivot', table: 'FilteredTable_EOD' },
 ];
+const colLetter = n => { let s = ''; n++; while (n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const partOf = k => PARTS.find(p => p.k === k);
-const isMidName = n => /^(mid\s*day|noon)$/i.test(n.trim());
-const isEodName = n => /^(eod|pm|end of day)$/i.test(n.trim());
+const isMidName = n => /^(mid\s*day|noon)(\s+raw\s+data)?$/i.test(n.trim());
+const isEodName = n => /^(eod|pm|end of day)(\s+raw\s+data)?$/i.test(n.trim());
 const ER_KEEP_DEFAULT = ['E&M', 'NP', 'Psych', 'Not Coded - Missing Chart'];
 const REV_TYPE = {"99214":"E&M","90868":"TMS","90833":"Psych","90837":"Therapy","99213":"E&M","99215":"E&M","90792":"NP","99417":"ESK","G2083":"ESK-B&B","99416":"ESK","99415":"ESK","Nsmm31-60":"NoShow","90867":"TMS","90869":"TMS","90836":"Psych","96365":"IVK","99212":"E&M","90791":"NP","90853":"Therapy","Adhdtest":"Other","90838":"Psych","Therapyns":"NoShow","90834":"Therapy","90832":"Therapy","90870":"Other","G2082":"ESK-B&B","Ivket":"IVK","99355":"ESK","99354":"ESK","G2212":"ESK","963651":"IVK","ACCTMS":"TMS","99232":"Other","90847":"Therapy","96139":"Other","99211":"E&M","99205":"NP","99404":"Other","99204":"NP","S0013":"ESK-B&B","NoShowTMS":"NoShow","90889":"Other","90846":"Other","96138":"Other","99233":"Other","99203":"NP","90865":"Other","SCPON":"Other","99239":"Other","55555":"IVK","99202":"NP","Tmsns31-60":"NoShow","90785":"Therapy","K9999":"IVK","99201":"NP","Nsfchk":"Other","Ksrfu":"Other","Newptns":"NoShow","Ns90":"NoShow","Nsmm10-30":"NoShow","99242":"NP","0221U":"Other","96127":"Other","Comptx":"Other","Forms":"Other","99223":"Other","Ketobs":"Other","Nocharge":"Other","99442":"Other","99443":"Other","99441":"Other","90377":"Other","Returncall":"Other","SCPONNP":"Other","11111":"Other","S0014":"ESK-B&B","Mndflone":"TMS","NSMM3":"NoShow","MNDFL":"TMS","ADHDT":"Other","NS30M":"TMS","NBS07":"NBS07","ACTMS":"TMS","CTMSS":"TMS","J0013":"ESK-B&B"};
 const REV_AVG = { 'E&M': 156, 'ESK': 184, 'ESK-B&B': 1579, 'IVK': 677, 'NoShow': 171, 'Not Coded - Missing Chart': 156, 'NP': 251, 'Other': 156, 'Psych': 98, 'TMS': 354 };
@@ -1150,10 +1156,10 @@ async function scanSources(){
   const info = await S.store.sheetsInfo();
   const R = { ir: {}, er: null, sheets: info.map(s => s.name) };
   for (const s of info){
-    const isF = /^filtered/i.test(s.name) || /^pivot/i.test(s.name);
+    const isF = /filtered|pivot/i.test(s.name);
     if (findHeader(s.top, ['incident id', 'description', 'facility']) >= 0 && !isF){
-      const k = isMidName(s.name) ? 'Midday' : isEodName(s.name) ? 'EOD' : 'AM';
-      if (k !== 'AM' || !R.ir.AM || /^main sheet$/i.test(s.name)) R.ir[k] = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
+      const k = isMidName(s.name) ? 'Noon' : isEodName(s.name) ? 'EOD' : 'AM';
+      if (k !== 'AM' || !R.ir.AM || /^(am raw data|main sheet)$/i.test(s.name)) R.ir[k] = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
     }
     if (findHeader(s.top, ['incidentid', 'erstatus', 'note category']) >= 0 && !isF){
       if (!R.er || s.rows > R.er.rows) R.er = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
@@ -1219,18 +1225,21 @@ async function buildIR(part, opts = {}){
     const keep = data.rows.filter(r => r.c.ctrl);
     const iId = data.header.map(norm).indexOf('incident id');
     const values = [['Status', 'Notes', ...data.header], ...keep.map(r => { const v = r.v.slice(); v[data.iD] = r.c.cat; v[data.iF] = r.fac; const id = String(r.v[iId] ?? '').trim(); return [statusOf(id), noteOf(id), ...v.map(x => x ?? '')]; })];
-    await S.store.removeSheets([P.pivot, P.filtered]); delete S.sidx[P.filtered];
-    await S.store.writeSheet(P.filtered, values, { col: 0, table: P.table, dateCols: dateCols(['', '', ...data.header]) });
+    const src = S.rep.ir[part];
+    if (src && src.sheet !== P.raw){ await S.store.renameSheet(src.sheet, P.raw); delete S.sidx[src.sheet]; if (S.irCache) delete S.irCache[part]; src.sheet = P.raw; }
+    await S.store.removeSheets([P.filtered]); delete S.sidx[P.filtered];
+    await S.store.writeSheet(P.filtered, values, { col: 0, table: P.table, dateCols: dateCols(['', '', ...data.header]), after: P.raw });
+    const pc = values[0].length + 1; // one blank column, then the pivots
     let pivotOk = true;
     try {
-      await S.store.buildPivots(P.pivot, [
-        { name: 'IRDesc_' + part, table: P.table, at: 'A3', rows: ['Description'], value: 'Prov Org', valueName: 'Count of Prov Org' },
-        { name: 'IRLoc_' + part, table: P.table, at: 'D3', rows: ['Facility', 'Description'], value: 'Prov Org', valueName: 'Count of Prov Org', sortDesc: true },
-      ]);
+      await S.store.buildPivots(P.filtered, [
+        { name: 'IRDesc_' + part, table: P.table, at: colLetter(pc) + '3', rows: ['Description'], value: 'Prov Org', valueName: 'Count of Prov Org' },
+        { name: 'IRLoc_' + part, table: P.table, at: colLetter(pc + 3) + '3', rows: ['Facility', 'Description'], value: 'Prov Org', valueName: 'Count of Prov Org', sortDesc: true },
+      ], { existing: true });
     } catch (e){ pivotOk = false; console.error(e); }
     S.built = Object.assign({}, S.store.getDoc('irBuilt') || {}, { [part]: new Date().toISOString() }); await S.store.setDoc('irBuilt', S.built);
     S.irCache = Object.assign(S.irCache || {}, { [part]: data });
-    await S.store.activate(pivotOk ? P.pivot : P.filtered);
+    await S.store.activate(P.filtered);
     await scanSources(); busy(false); await reload(true);
     toast(pivotOk ? 'ok' : 'warn', `${P.filtered}: ${keep.length} controllable of ${data.rows.length} rows.${pivotOk ? '' : ' The pivot couldn\'t be created in this version of Excel, so the email tables are built from the data instead.'}`);
     if (!opts.noEmail) await showIrEmail(part);
@@ -1356,7 +1365,7 @@ async function showErEmail(){
   rptEmail({ who: 'Weekly auth (ER report)', subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`, body: note => wrap(`${note ? `<p style="margin:0 0 8px">${esc(note).replace(/\n/g, '<br>')}</p>` : ''}<p style="margin:0 0 8px">${esc(intro)}</p>${h1}${h2}`), text: note => `${note ? note + '\n\n' : ''}${intro}\n\n${t1}\n\n${t2}` });
 }
 
-// ----- file upload (Midday / EOD) -----
+// ----- file upload (Noon / EOD) -----
 function loadXLSX(){
   if (window.XLSX) return Promise.resolve();
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = res; s.onerror = () => rej(new Error('Couldn\'t load the file reader. Check the internet connection.')); document.head.appendChild(s); });
@@ -1371,10 +1380,11 @@ async function uploadPart(part, file){
     if (!values) throw new Error('That file has no sheet with Incident ID, Description and Facility headers.');
     const w = Math.max(...values.slice(0, 10).map(r => r.length)); values = values.map(r => { const x = r.slice(0, w); while (x.length < w) x.push(''); return x; });
     busy(true, `Adding the ${part} tab…`);
-    await S.store.removeSheets([part]); delete S.sidx[part];
-    await S.store.writeSheet(part, values, { col: 0, dateCols: dateCols(values[findHeader(values, ['incident id', 'description', 'facility'])]) });
+    const rawName = partOf(part).raw; const old = S.rep && S.rep.ir[part] ? S.rep.ir[part].sheet : null;
+    await S.store.removeSheets([...new Set([rawName, old].filter(Boolean))]); delete S.sidx[rawName];
+    await S.store.writeSheet(rawName, values, { col: 0, dateCols: dateCols(values[findHeader(values, ['incident id', 'description', 'facility'])]) });
     if (S.irCache) delete S.irCache[part];
-    const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [part]); } catch (e){ console.error(e); } }
+    const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [rawName]); } catch (e){ console.error(e); } }
     await scanSources(); busy(false);
     await buildIR(part);
   } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); }
@@ -1389,7 +1399,7 @@ function repHTML(){
   const partRow = P => {
     const src = R.ir[P.k]; const done = src && R.has(P.filtered);
     return `<div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="grow"><div class="name">${esc(P.label)}${P.k === 'EOD' ? ' <span class="small muted">· compared with AM</span>' : ''}</div>
-      <div class="small muted">${src ? `${esc(src.sheet)} tab · ${src.rows} rows${done ? ` · ${esc(P.filtered)} built ${when(P.k)}` : ''}` : P.k === 'AM' ? 'No IR Portal export tab found in this workbook.' : 'Not added yet.'}</div></div>
+      <div class="small muted">${src ? `${esc(src.sheet)} · ${src.rows} rows${done ? ` · ${esc(P.filtered)} built ${when(P.k)}` : ''}` : P.k === 'AM' ? 'No IR Portal export tab found in this workbook.' : 'Not added yet.'}</div></div>
       ${src ? `<button class="btn sm primary" data-act="buildIR" data-v="${P.k}">${done ? 'Rebuild' : 'Build'} Filtered + pivot + email</button>${done ? `<button class="btn sm" data-act="irEmail" data-v="${P.k}">Email only</button>` : ''}` : ''}
       ${P.k !== 'AM' && R.ir.AM ? `<label class="btn sm" style="display:inline-flex;align-items:center">${src ? 'Replace' : 'Upload'} ${esc(P.label.toLowerCase())} export…<input type="file" data-upload="${P.k}" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>` : ''}
       ${P.k !== 'AM' && R.ir.AM && S.store.demo ? `<button class="btn sm" data-act="demoPart" data-v="${P.k}">Use sample ${esc(P.label.toLowerCase())} data</button>` : ''}</div>`;
@@ -1398,7 +1408,7 @@ function repHTML(){
   return `<div class="row noprint" style="margin-bottom:8px"><span class="grow"></span>${startTab() === 'rep' ? '<span class="small muted">Reports opens first on this computer.</span> <button class="linkbtn" data-act="setStart" data-v="dash">Open Clinic Dashboard first instead</button>' : '<button class="btn sm" data-act="setStart" data-v="rep">Make Reports my default view</button>'}</div>
     <div class="card"><h2>Daily IR Portal update<span class="sp"></span><span class="small muted">one tab per day part</span></h2>
       ${PARTS.map(partRow).join('')}
-      <div class="small muted" style="margin-top:8px">Each build rewrites that day part's Filtered tab (controllable items only, starting in column C) and its pivot tab, then drafts the update email. Locations combine Office and Telehealth.</div></div>
+      <div class="small muted" style="margin-top:8px">Tabs per day part: <b>AM Raw Data</b> → <b>AM Filtered + Pivot</b>, <b>Noon Raw Data</b> → <b>Noon Filtered + Pivot</b>, <b>EOD Raw Data</b> → <b>EOD Filtered + Pivot</b>. Each build rewrites the Filtered + Pivot tab (controllable items on the left, pivots to the right) and drafts the update email. Locations combine Office and Telehealth.</div></div>
     <div class="card"><h2>Weekly ER report</h2>
       ${R.er ? `<div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="grow"><div class="name">${esc(R.er.sheet)} tab</div><div class="small muted">${R.er.rows.toLocaleString()} rows${R.has('Filtered Export') ? ' · Filtered Export built' : ''}</div></div>
         <button class="btn sm primary" data-act="buildER">${R.has('Filtered Export') ? 'Rebuild' : 'Build'} Filtered Export + summary + email</button>${R.has('Filtered Export') ? '<button class="btn sm" data-act="erEmail">Email only</button>' : ''}</div>
@@ -1534,7 +1544,7 @@ function RemoteStore(){
     getDoc: k => docs[k] ?? null,
     async setDoc(k, v){ docs[k] = v; await call('setDoc', [k, v]); },
     sheetsInfo: () => call('sheetsInfo', []), readSheet: n => call('readSheet', [n]), removeSheets: ns => call('removeSheets', [ns]),
-    writeSheet: (n, v, o) => call('writeSheet', [n, v, o]), writeCells: (n, c, k) => call('writeCells', [n, c, k]), refreshPivots: () => call('refreshPivots', []), insertCols: (n, k) => call('insertCols', [n, k]), buildPivots: (n, sp) => call('buildPivots', [n, sp]), activate: n => call('activate', [n]),
+    writeSheet: (n, v, o) => call('writeSheet', [n, v, o]), writeCells: (n, c, k) => call('writeCells', [n, c, k]), renameSheet: (a, b) => call('renameSheet', [a, b]), refreshPivots: () => call('refreshPivots', []), insertCols: (n, k) => call('insertCols', [n, k]), buildPivots: (n, sp, o) => call('buildPivots', [n, sp, o]), activate: n => call('activate', [n]),
     watch(cb){ onChanged = cb; },
   };
 }
@@ -1552,7 +1562,7 @@ function openFull(){
       try {
         let res;
         if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes') }; }
-        else if (['setDoc', 'sheetsInfo', 'readSheet', 'removeSheets', 'writeSheet', 'writeCells', 'insertCols', 'refreshPivots', 'buildPivots', 'activate'].includes(op)) res = await S.store[op](...(args || []));
+        else if (['setDoc', 'sheetsInfo', 'readSheet', 'removeSheets', 'writeSheet', 'writeCells', 'insertCols', 'refreshPivots', 'renameSheet', 'buildPivots', 'activate'].includes(op)) res = await S.store[op](...(args || []));
         else throw new Error('Unknown request');
         reply({ rid, ok: true, res: res ?? null });
       } catch (e){ reply({ rid, ok: false, err: e.message || String(e) }); }
