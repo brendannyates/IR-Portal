@@ -184,13 +184,7 @@ table.wl tr.grp td{background:var(--surface2);font-weight:700;color:var(--ink);f
 .subnav button .badge.neutral{background:var(--faint)}
 
 /* clinic chips */
-.clinchip{border:1px solid var(--line2);background:var(--surface);color:var(--muted);border-radius:999px;padding:3px 10px;min-height:30px;font-weight:650;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.clinchip:hover{border-color:var(--faint);color:var(--ink)}
-.clinchip .c{font-weight:600;font-size:11.5px;opacity:.75}
-.clinchip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-.clinchip[aria-pressed="true"]::before{content:"✓";font-weight:800}
 .wlbar{padding:10px 12px}
-.wlbar .chips{display:flex;flex-wrap:wrap;gap:6px}
 
 /* settings tables */
 table.set{border-collapse:collapse;width:100%;font-size:13px}
@@ -215,6 +209,33 @@ iframe.print{width:100%;height:65vh;border:1px solid var(--line);border-radius:1
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #busy{background:rgba(20,16,12,.65);color:var(--ink)}}
 #busy[hidden]{display:none}
 .demo-ribbon{background:var(--info-soft);color:var(--info);text-align:center;font-size:11.5px;font-weight:650;padding:4px 8px}
+/* clinic multi-select dropdown */
+.ms{position:relative;display:inline-block;min-width:0;max-width:100%}
+.ms-btn{display:flex;align-items:center;gap:10px;min-width:220px;max-width:100%;min-height:34px;padding:5px 10px 5px 12px;border:1px solid var(--line2);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;font-weight:650;text-align:left}
+.ms-btn:hover{border-color:var(--faint)}
+.ms.open .ms-btn{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ms-btn.empty .ms-val{color:var(--bad)}
+.ms-val{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-caret{color:var(--muted);font-size:11px;transition:transform .12s}
+.ms.open .ms-caret{transform:rotate(180deg)}
+.ms-pop{position:absolute;z-index:15;top:calc(100% + 4px);left:0;width:max(100%,260px);max-width:calc(100vw - 24px);background:var(--surface);border:1px solid var(--line2);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.16);animation:pop .12s ease-out}
+.ms-acts{display:flex;gap:14px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)}
+.ms-acts .linkbtn{white-space:nowrap}
+.ms-acts .linkbtn:disabled{color:var(--faint);cursor:default;text-decoration:none}
+.ms-list{max-height:min(320px,50vh);overflow:auto;padding:4px}
+.ms-opt{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:7px 8px;border-radius:6px;cursor:pointer;text-align:left;font-weight:550}
+.ms-opt:hover{background:var(--hover)}
+.ms-box{width:16px;height:16px;border:1.5px solid var(--faint);border-radius:4px;display:grid;place-items:center;flex:none;background:var(--surface)}
+.ms-opt[aria-checked="true"] .ms-box{background:var(--accent);border-color:var(--accent)}
+.ms-opt[aria-checked="true"] .ms-box::after{content:"";width:8px;height:4px;border-left:2px solid var(--accent-ink);border-bottom:2px solid var(--accent-ink);transform:translateY(-1px) rotate(-45deg)}
+.ms-n{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ms-foot{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line)}
+.card.wlbar{overflow:visible}
+.card:has(.ms.open){overflow:visible}
+/* segmented buttons (Settings) */
+.seg{display:inline-flex;gap:2px;padding:3px;background:var(--surface2);border-radius:10px}
+.seg button{border:0;background:transparent;border-radius:8px;padding:5px 12px;font-weight:650;color:var(--muted);cursor:pointer;min-height:30px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px var(--line)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media print{header.top,.noprint{display:none!important}}
 </style>
@@ -230,7 +251,10 @@ iframe.print{width:100%;height:65vh;border:1px solid var(--line);border-radius:1
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const norm = s => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-function wlLoadSafe(){ try { const v = JSON.parse(localStorage.getItem('irWlClinics') || 'null'); return v && (v.mode === 'all' || Array.isArray(v.list)) ? v : { mode: 'all' }; } catch { return { mode: 'all' }; } }
+const wlValid = v => v && (v.mode === 'all' || (v.mode === 'some' && Array.isArray(v.list)));
+function wlDefault(){ try { const v = JSON.parse(localStorage.getItem('irWlDefault') || 'null'); return wlValid(v) ? v : { mode: 'all' }; } catch { return { mode: 'all' }; } }
+// opens on the last selection; the first time (or after it's cleared) on the user's default from Settings, else all clinics
+function wlLoadSafe(){ try { const v = JSON.parse(localStorage.getItem('irWlClinics') || 'null'); return wlValid(v) ? v : wlDefault(); } catch { return { mode: 'all' }; } }
 const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
 const ICON_GEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
@@ -369,15 +393,36 @@ const wlOn = () => WL_TABS.includes(S.tab) && !S.loc && S.wl && S.wl.mode === 's
 const wlHas = f => !wlOn() || S.wl.list.includes(f);
 const scope = () => S.loc ? S.rows.filter(r => r.fac === S.loc) : wlOn() ? S.rows.filter(r => S.wl.list.includes(r.fac)) : S.rows; // header location, or the Worklist clinic picker
 function wlLabel(){ if (S.loc) return S.loc; if (!wlOn()) return 'All locations'; const l = S.wl.list; return !l.length ? 'No clinics' : l.length <= 3 ? l.join(', ') : `${l.length} clinics`; }
+// multi-select clinic dropdown. k = 'wl' (Worklist, last selection) or 'def' (Settings default)
+const msFacs = () => [...groupBy(S.rows.filter(inView), 'fac').entries()].sort((a, b) => byName(a[0], b[0]));
+const msGet = k => k === 'def' ? wlDefault() : (S.wl || { mode: 'all' });
+function msSet(k, v){
+  if (k === 'def'){ try { localStorage.setItem('irWlDefault', JSON.stringify(v)); } catch {} }
+  else { S.wl = v; wlSave(); }
+}
+function msSummary(v, facs){
+  if (v.mode === 'all') return `All clinics (${facs.length})`;
+  const l = v.list.filter(f => facs.some(([x]) => x === f));
+  return !l.length ? 'No clinics selected' : l.length <= 2 ? l.join(', ') : `${l.length} of ${facs.length} clinics`;
+}
+function msHTML(k){
+  const facs = msFacs(); const v = msGet(k); const all = v.mode === 'all'; const sel = f => all || v.list.includes(f);
+  const nSel = facs.filter(([f]) => sel(f)).length; const open = S.msOpen === k;
+  const def = wlDefault(); const same = (x, y) => x.mode === y.mode && (x.mode === 'all' || [...x.list].sort().join('|') === [...y.list].sort().join('|'));
+  return `<div class="ms${open ? ' open' : ''}" data-ms="${k}">
+    <button class="ms-btn${nSel ? '' : ' empty'}" data-act="msOpen" data-k="${k}" aria-haspopup="true" aria-expanded="${open}"><span class="ms-val">${esc(msSummary(v, facs))}</span><span class="ms-caret" aria-hidden="true">▾</span></button>
+    ${open ? `<div class="ms-pop" role="group" aria-label="Clinics">
+      <div class="ms-acts"><button class="linkbtn" data-act="msAll" data-k="${k}" ${all ? 'disabled' : ''}>Select all</button><button class="linkbtn" data-act="msNone" data-k="${k}" ${!nSel ? 'disabled' : ''}>Deselect all</button>
+        ${k === 'wl' && !same(v, def) ? `<span class="grow"></span><button class="linkbtn" data-act="msDefault" data-k="${k}" title="Your default from Settings">My default</button>` : ''}</div>
+      <div class="ms-list">${facs.map(([f, rs]) => `<button class="ms-opt" role="menuitemcheckbox" aria-checked="${sel(f)}" data-act="msToggle" data-k="${k}" data-f="${esc(f)}"><span class="ms-box" aria-hidden="true"></span><span class="grow">${esc(f)}</span><span class="ms-n">${rs.length}</span></button>`).join('') || '<div class="empty">No clinics on this tab.</div>'}</div>
+      <div class="ms-foot"><span class="small muted">${nSel} of ${facs.length} selected</span><span class="grow"></span><button class="btn sm primary" data-act="msClose">Done</button></div>
+    </div>` : ''}</div>`;
+}
 function wlBar(){
-  const facs = [...groupBy(S.rows.filter(inView), 'fac').entries()].sort((a, b) => byName(a[0], b[0]));
-  if (S.loc) return `<div class="card noprint wlbar"><div class="row"><b>Clinic</b><span class="clinchip" aria-pressed="true" style="cursor:default">${esc(S.loc)}</span><span class="small muted">set by the Location picker at the top.</span><button class="linkbtn" data-act="setLoc" data-f="">Pick several clinics instead</button></div></div>`;
-  const all = !S.wl || S.wl.mode === 'all'; const sel = f => all || S.wl.list.includes(f); const nSel = facs.filter(([f]) => sel(f)).length;
-  return `<div class="card noprint wlbar">
-    <div class="row" style="margin-bottom:8px"><b>Clinics</b><span class="pill ${nSel ? '' : 'bad'}">${all ? 'All ' + facs.length : nSel + ' of ' + facs.length} selected</span><span class="grow"></span>
-      <button class="btn sm" data-act="wlAll" ${all ? 'disabled' : ''}>Select all</button><button class="btn sm" data-act="wlNone" ${!all && !nSel ? 'disabled' : ''}>Deselect all</button></div>
-    <div class="chips" role="group" aria-label="Clinics">${facs.map(([f, rs]) => { const on = sel(f); return `<button class="clinchip" data-act="wlToggle" data-f="${esc(f)}" aria-pressed="${on}">${esc(f)} <span class="c">${rs.length}</span></button>`; }).join('')}</div>
-    ${!all && !nSel ? '<div class="small badText" style="margin-top:6px">No clinics selected. Pick at least one to see items.</div>' : ''}</div>`;
+  if (S.loc) return `<div class="card noprint wlbar"><div class="row"><b>Clinics</b><span class="pill">${esc(S.loc)}</span><span class="small muted">set by the Location picker at the top.</span><button class="linkbtn" data-act="setLoc" data-f="">Pick several clinics instead</button></div></div>`;
+  const facs = msFacs(); const v = msGet('wl'); const nSel = v.mode === 'all' ? facs.length : facs.filter(([f]) => v.list.includes(f)).length;
+  return `<div class="card noprint wlbar"><div class="row"><b>Clinics</b>${msHTML('wl')}</div>
+    ${!nSel ? '<div class="small badText" style="margin-top:6px">No clinics selected. Pick at least one to see items.</div>' : ''}</div>`;
 }
 const viewRows = () => scope().filter(inView);
 const ctrlRows = () => viewRows().filter(r => statusOf(r.id) !== 'Submitted'); // outreach lists skip submitted items
@@ -949,6 +994,8 @@ function setHTML(){
     <div class="card"><h2>Focus highlights</h2><div class="small muted" style="margin-bottom:6px">Items whose original portal description contains any of these words are counted in the Focus items number at the top of the Clinic Dashboard. Separate words with commas.</div>
       <table class="set"><thead><tr><th>Label</th><th>Keywords</th><th></th></tr></thead><tbody>${focusKw().map((f, i) => `<tr><td><input class="fld" data-fk="${i}" data-k="label" value="${esc(f.label)}" style="max-width:160px" aria-label="Label"></td><td><input class="fld" data-fk="${i}" data-k="words" value="${esc(f.words)}" aria-label="Keywords"></td><td><button class="linkbtn" data-act="fkDel" data-v="${i}">Remove</button></td></tr>`).join('')}</tbody></table>
       <div class="row" style="margin-top:6px"><button class="btn sm" data-act="fkAdd">Add highlight</button><button class="linkbtn" data-act="fkReset">Reset to Tx report / Infusion note / BH Master</button></div></div>
+    <div class="card"><h2>My default clinics</h2><div class="small muted" style="margin-bottom:8px">The Worklist remembers your last clinic selection on this computer. These clinics are used the first time, and whenever you choose "My default" in the Worklist clinic menu. Each person sets their own.</div>
+      <div class="row">${msHTML('def')}<button class="btn sm" data-act="msDefault">Apply to the Worklist now</button></div></div>
     <div class="card"><h2>Default view</h2><div class="small muted" style="margin-bottom:6px">What opens first on this computer. Each person sets their own.</div>
       <div class="seg" role="group" aria-label="Default view">${[['dash', 'Clinic Dashboard'], ['rep', 'Reports']].map(([k, l]) => `<button data-act="setStart" data-v="${k}" aria-pressed="${startTab() === k}">${l}</button>`).join('')}</div></div>
     <div class="card"><h2>Data source</h2><label class="lbl" for="sheetIn">Tab the dashboard reads ("auto" = the latest day-part export: EOD, then Noon, then AM)</label>
@@ -1078,6 +1125,7 @@ function editContact(kind, name){
 
 // ---------- events ----------
 document.addEventListener('click', async ev => {
+  if (S.msOpen && !ev.target.closest('.ms')){ S.msOpen = null; document.querySelectorAll('.ms-pop').forEach(e => e.remove()); if (!ev.target.closest('[data-act]')) { render(); return; } }
   const b = ev.target.closest('[data-act]'); if (!b) { if (ev.target.id === 'modal') closeModal(); return; }
   const a = b.dataset.act, v = b.dataset.v;
   const A = {
@@ -1085,12 +1133,15 @@ document.addEventListener('click', async ev => {
     buildIR: () => buildIR(v),
     inc: () => editIncident(b.dataset.id),
     theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); render(); },
-    wlAll: () => { S.wl = { mode: 'all' }; wlSave(); render(); },
-    wlNone: () => { S.wl = { mode: 'some', list: [] }; wlSave(); render(); },
-    wlToggle: () => { const f = b.dataset.f; const facs = [...new Set(S.rows.filter(inView).map(r => r.fac))];
-      let list = !S.wl || S.wl.mode === 'all' ? facs.slice() : S.wl.list.slice();
+    msOpen: () => { S.msOpen = S.msOpen === b.dataset.k ? null : b.dataset.k; render(); },
+    msClose: () => { S.msOpen = null; render(); },
+    msAll: () => { msSet(b.dataset.k, { mode: 'all' }); render(); },
+    msNone: () => { msSet(b.dataset.k, { mode: 'some', list: [] }); render(); },
+    msDefault: () => { msSet('wl', wlDefault()); S.msOpen = null; render(); if (S.tab === 'set') toast('ok', 'Worklist set to your default clinics.'); },
+    msToggle: () => { const k = b.dataset.k, f = b.dataset.f; const facs = msFacs().map(([x]) => x); const cur = msGet(k);
+      let list = cur.mode === 'all' ? facs.slice() : cur.list.filter(x => facs.includes(x));
       list = list.includes(f) ? list.filter(x => x !== f) : [...list, f];
-      S.wl = facs.every(x => list.includes(x)) ? { mode: 'all' } : { mode: 'some', list }; wlSave(); render(); },
+      msSet(k, facs.every(x => list.includes(x)) ? { mode: 'all' } : { mode: 'some', list }); render(); },
     fkAdd: async () => { S.cfg.focusKw = [...focusKw(), { label: 'New highlight', words: '' }]; await saveCfg(); render(); },
     fkDel: async () => { const a = focusKw().slice(); a.splice(+v, 1); S.cfg.focusKw = a; await saveCfg(); render(); },
     fkReset: async () => { S.cfg.focusKw = null; await saveCfg(); render(); toast('ok', 'Highlights reset.'); },
@@ -1155,7 +1206,7 @@ document.addEventListener('click', async ev => {
   };
   if (A[a]) await A[a]();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if (e.key === 'Enter' && e.target.matches && e.target.matches('.srow[data-act="inc"]')) e.target.click(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.msOpen){ const k = S.msOpen; S.msOpen = null; render(); const t = document.querySelector(`.ms[data-ms="${k}"] .ms-btn`); if (t) t.focus(); return; } if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if (e.key === 'Enter' && e.target.matches && e.target.matches('.srow[data-act="inc"]')) e.target.click(); });
 document.addEventListener('input', e => {
   if (e.target.id === 'rptNote' && S._rptMake){ S._rptMake(); return; }
   if (e.target.id === 'rnNew' || e.target.id === 'rnEx'){ renameCheck(); return; }
