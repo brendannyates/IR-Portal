@@ -1445,41 +1445,48 @@ function chg(now, before){
   if (!d) return { h: '<span style="color:#6f665c">–</span>', t: '0' };
   return d > 0 ? { h: `<span style="color:#b3261e;font-weight:700">▲ ${d}</span>`, t: '▲' + d } : { h: `<span style="color:#2f7a45;font-weight:700">▼ ${-d}</span>`, t: '▼' + (-d) };
 }
-// compact email tables: totals by description, then one row per clinic with the main categories as columns
-const shortCat = c => { const t = String(c).replace(/^ER\/HIM\/NB\//i, '').replace(/\s*\/\s*/g, ' / ').trim(); return t.length > 38 ? t.slice(0, 36) + '…' : t; };
+// compact email tables, side by side: totals by description (left) and one row per clinic (right).
+// Every cell sets an exact line height so Outlook doesn't pad pasted rows.
+const shortCat = c => { const t = String(c).replace(/^(ER|IR)\s*\/\s*HIM\s*\/\s*NB\s*\/\s*/i, '').replace(/\s*\/\s*/g, ' / ').trim(); return t.length > 30 ? t.slice(0, 28).trim() + '…' : t; };
 function pivotTables(cur, base){
   const cmp = !!base; const g = (m, k) => (m && m.get(k)) || 0;
-  const F = 'font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:12px;color:#222';
-  const TB = `border-collapse:collapse;${F};margin:6px 0 14px`;
-  const H = 'background:#DDEBF7;font-weight:700;padding:3px 8px;border-bottom:1px solid #9BC2E6;white-space:nowrap', HR = H + ';text-align:right';
-  const D = 'padding:2px 8px;border-bottom:1px solid #eef2f7;white-space:nowrap', DR = D + ';text-align:right';
-  const T = 'padding:3px 8px;font-weight:700;background:#DDEBF7;border-top:1px solid #9BC2E6;white-space:nowrap', TR = T + ';text-align:right';
-  const delta = (now, before, small) => { const d = now - before; if (!d) return small ? '' : '<span style="color:#888">–</span>'; const c = d > 0 ? '#b3261e' : '#2f7a45'; return small ? ` <span style="color:${c};font-size:11px">(${d > 0 ? '▲' : '▼'}${Math.abs(d)})</span>` : `<span style="color:${c};font-weight:700">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}</span>`; };
+  const F = 'font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:12px;color:#222;line-height:15px;mso-line-height-rule:exactly';
+  const TB = `border-collapse:collapse;${F}`;
+  const P = 'margin:0;line-height:15px;mso-line-height-rule:exactly';
+  const cell = (tag, st, v) => `<${tag} style="${st}"><p style="${P}">${v}</p></${tag}>`;
+  const H = 'background:#DDEBF7;font-weight:700;padding:2px 7px;border-bottom:1px solid #9BC2E6;white-space:nowrap;text-align:left', HR = H + ';text-align:right';
+  const D = 'padding:1px 7px;border-bottom:1px solid #edf1f6;white-space:nowrap', DR = D + ';text-align:right';
+  const T = 'padding:2px 7px;font-weight:700;background:#DDEBF7;border-top:1px solid #9BC2E6;white-space:nowrap', TR = T + ';text-align:right';
+  const dot = '<span style="color:#bbb">·</span>';
+  const delta = (now, before, small) => { const d = now - before; if (!d) return small ? '' : '<span style="color:#888">–</span>'; const c = d > 0 ? '#b3261e' : '#2f7a45'; return small ? ` <span style="color:${c};font-size:10px">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>` : `<span style="color:${c};font-weight:700">${d > 0 ? '▲' : '▼'}${Math.abs(d)}</span>`; };
   const dt = (now, before) => { const d = now - before; return d ? (d > 0 ? '▲' : '▼') + Math.abs(d) : '–'; };
   // 1) by description
   const descs = [...new Set([...cur.byDesc.keys(), ...(cmp ? base.byDesc.keys() : [])])].sort((a, b) => g(cur.byDesc, b) - g(cur.byDesc, a) || byName(a, b));
-  let h1 = `<table style="${TB}"><tr><th style="${H};text-align:left">Description</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">Difference</th>` : `<th style="${HR}">Items</th>`}</tr>`;
+  let h1 = `<table cellpadding="0" cellspacing="0" style="${TB}"><tr>${cell('th', H, 'Description')}${cmp ? cell('th', HR, 'AM') + cell('th', HR, 'EOD') + cell('th', HR, 'Diff') : cell('th', HR, 'Items')}</tr>`;
   let t1 = cmp ? 'Description\tAM\tEOD\tDifference\n' : 'Description\tItems\n';
-  for (const d of descs){ const n = g(cur.byDesc, d), b = cmp ? g(base.byDesc, d) : 0; h1 += `<tr><td style="${D}">${esc(shortCat(d))}</td>${cmp ? `<td style="${DR}">${b}</td><td style="${DR}">${n}</td><td style="${DR}">${delta(n, b)}</td>` : `<td style="${DR}">${n}</td>`}</tr>`; t1 += `${shortCat(d)}\t${cmp ? b + '\t' + n + '\t' + dt(n, b) : n}\n`; }
-  h1 += `<tr><td style="${T}">Total</td>${cmp ? `<td style="${TR}">${base.total}</td><td style="${TR}">${cur.total}</td><td style="${TR}">${delta(cur.total, base.total)}</td>` : `<td style="${TR}">${cur.total}</td>`}</tr></table>`;
+  for (const d of descs){ const n = g(cur.byDesc, d), b = cmp ? g(base.byDesc, d) : 0; h1 += `<tr>${cell('td', D, esc(shortCat(d)))}${cmp ? cell('td', DR, b) + cell('td', DR, n) + cell('td', DR, delta(n, b)) : cell('td', DR, n)}</tr>`; t1 += `${shortCat(d)}\t${cmp ? b + '\t' + n + '\t' + dt(n, b) : n}\n`; }
+  h1 += `<tr>${cell('td', T, 'Total')}${cmp ? cell('td', TR, base.total) + cell('td', TR, cur.total) + cell('td', TR, delta(cur.total, base.total)) : cell('td', TR, cur.total)}</tr></table>`;
   t1 += `Total\t${cmp ? base.total + '\t' + cur.total + '\t' + dt(cur.total, base.total) : cur.total}`;
   // 2) one row per clinic: the three biggest categories as columns, everything else in Other
-  const top = descs.slice(0, 3); const other = (m) => m ? [...m.entries()].filter(([k]) => !top.includes(k)).reduce((a, [, v]) => a + v, 0) : 0;
+  const top = descs.slice(0, 3); const other = m => m ? [...m.entries()].filter(([k]) => !top.includes(k)).reduce((a, [, v]) => a + v, 0) : 0;
   const tot = (c, l) => c && c.byLoc.get(l) ? [...c.byLoc.get(l).values()].reduce((a, b) => a + b, 0) : 0;
   const locs = [...new Set([...cur.byLoc.keys(), ...(cmp ? base.byLoc.keys() : [])])].sort((a, b) => tot(cur, b) - tot(cur, a) || tot(base, b) - tot(base, a) || byName(a, b));
-  let h2 = `<table style="${TB}"><tr><th style="${H};text-align:left">Clinic</th>${top.map(d => `<th style="${HR}">${esc(shortCat(d))}</th>`).join('')}<th style="${HR}">Other</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">Difference</th>` : `<th style="${HR}">Total</th>`}</tr>`;
+  const hd = d => esc(shortCat(d)).replace(/^Missing /, 'Missing<br>').replace(/^Incomplete /, 'Incomplete<br>');
+  let h2 = `<table cellpadding="0" cellspacing="0" style="${TB}"><tr>${cell('th', H + ';vertical-align:bottom', 'Clinic')}${top.map(d => cell('th', HR + ';vertical-align:bottom', hd(d))).join('')}${cell('th', HR + ';vertical-align:bottom', 'Other')}${cmp ? cell('th', HR + ';vertical-align:bottom', 'AM') + cell('th', HR + ';vertical-align:bottom', 'EOD') + cell('th', HR + ';vertical-align:bottom', 'Diff') : cell('th', HR + ';vertical-align:bottom', 'Total')}</tr>`;
   let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? 'AM\tEOD\tDifference' : 'Total'}\n`;
   for (const l of locs){
     const cm = cur.byLoc.get(l), bm = cmp ? base.byLoc.get(l) : null;
-    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return `<td style="${DR}">${n || (cmp && b ? 0 : '<span style="color:#bbb">·</span>')}${cmp ? delta(n, b, true) : ''}</td>`; }).join('');
+    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return cell('td', DR, (n || (cmp && b ? 0 : dot)) + (cmp ? delta(n, b, true) : '')); }).join('');
     const on = other(cm), ob = other(bm);
-    h2 += `<tr><td style="${D};font-weight:600">${esc(l)}</td>${cells}<td style="${DR}">${on || (cmp && ob ? 0 : '<span style="color:#bbb">·</span>')}${cmp ? delta(on, ob, true) : ''}</td>${cmp ? `<td style="${DR}">${tot(base, l)}</td><td style="${DR};font-weight:700">${tot(cur, l)}</td><td style="${DR}">${delta(tot(cur, l), tot(base, l))}</td>` : `<td style="${DR};font-weight:700">${tot(cur, l)}</td>`}</tr>`;
+    h2 += `<tr>${cell('td', D + ';font-weight:600', esc(l))}${cells}${cell('td', DR, (on || (cmp && ob ? 0 : dot)) + (cmp ? delta(on, ob, true) : ''))}${cmp ? cell('td', DR, tot(base, l)) + cell('td', DR + ';font-weight:700', tot(cur, l)) + cell('td', DR, delta(tot(cur, l), tot(base, l))) : cell('td', DR + ';font-weight:700', tot(cur, l))}</tr>`;
     t2 += `${l}\t${top.map(d => g(cm, d)).join('\t')}\t${on}\t${cmp ? tot(base, l) + '\t' + tot(cur, l) + '\t' + dt(tot(cur, l), tot(base, l)) : tot(cur, l)}\n`;
   }
   const cTop = top.map(d => g(cur.byDesc, d)), cOther = cur.total - cTop.reduce((a, b) => a + b, 0);
-  h2 += `<tr><td style="${T}">Total</td>${cTop.map(n => `<td style="${TR}">${n}</td>`).join('')}<td style="${TR}">${cOther}</td>${cmp ? `<td style="${TR}">${base.total}</td><td style="${TR}">${cur.total}</td><td style="${TR}">${delta(cur.total, base.total)}</td>` : `<td style="${TR}">${cur.total}</td>`}</tr></table>`;
+  h2 += `<tr>${cell('td', T, 'Total')}${cTop.map(n => cell('td', TR, n)).join('')}${cell('td', TR, cOther)}${cmp ? cell('td', TR, base.total) + cell('td', TR, cur.total) + cell('td', TR, delta(cur.total, base.total)) : cell('td', TR, cur.total)}</tr></table>`;
   t2 += `Total\t${cTop.join('\t')}\t${cOther}\t${cmp ? base.total + '\t' + cur.total + '\t' + dt(cur.total, base.total) : cur.total}`;
-  return { html: h1 + h2, text: t1 + '\n\n' + t2 };
+  // side by side; falls back to stacked on narrow screens that can't fit both
+  const html = `<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:6px 0 10px"><tr><td style="vertical-align:top;padding:0 18px 8px 0">${h1}</td><td style="vertical-align:top;padding:0 0 8px 0">${h2}</td></tr></table>`;
+  return { html, text: t1 + '\n\n' + t2 };
 }
 const subjDate = d => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
 async function showIrEmail(part){
