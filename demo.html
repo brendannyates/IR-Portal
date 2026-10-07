@@ -1270,8 +1270,8 @@ function pivotTables(cur, base){
   const dt = (now, before) => { const d = now - before; return d ? (d > 0 ? '▲' : '▼') + Math.abs(d) : '–'; };
   // 1) by description
   const descs = [...new Set([...cur.byDesc.keys(), ...(cmp ? base.byDesc.keys() : [])])].sort((a, b) => g(cur.byDesc, b) - g(cur.byDesc, a) || byName(a, b));
-  let h1 = `<table style="${TB}"><tr><th style="${H};text-align:left">Description</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">vs AM</th>` : `<th style="${HR}">Items</th>`}</tr>`;
-  let t1 = cmp ? 'Description\tAM\tEOD\tvs AM\n' : 'Description\tItems\n';
+  let h1 = `<table style="${TB}"><tr><th style="${H};text-align:left">Description</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">Difference</th>` : `<th style="${HR}">Items</th>`}</tr>`;
+  let t1 = cmp ? 'Description\tAM\tEOD\tDifference\n' : 'Description\tItems\n';
   for (const d of descs){ const n = g(cur.byDesc, d), b = cmp ? g(base.byDesc, d) : 0; h1 += `<tr><td style="${D}">${esc(shortCat(d))}</td>${cmp ? `<td style="${DR}">${b}</td><td style="${DR}">${n}</td><td style="${DR}">${delta(n, b)}</td>` : `<td style="${DR}">${n}</td>`}</tr>`; t1 += `${shortCat(d)}\t${cmp ? b + '\t' + n + '\t' + dt(n, b) : n}\n`; }
   h1 += `<tr><td style="${T}">Total</td>${cmp ? `<td style="${TR}">${base.total}</td><td style="${TR}">${cur.total}</td><td style="${TR}">${delta(cur.total, base.total)}</td>` : `<td style="${TR}">${cur.total}</td>`}</tr></table>`;
   t1 += `Total\t${cmp ? base.total + '\t' + cur.total + '\t' + dt(cur.total, base.total) : cur.total}`;
@@ -1279,8 +1279,8 @@ function pivotTables(cur, base){
   const top = descs.slice(0, 3); const other = (m) => m ? [...m.entries()].filter(([k]) => !top.includes(k)).reduce((a, [, v]) => a + v, 0) : 0;
   const tot = (c, l) => c && c.byLoc.get(l) ? [...c.byLoc.get(l).values()].reduce((a, b) => a + b, 0) : 0;
   const locs = [...new Set([...cur.byLoc.keys(), ...(cmp ? base.byLoc.keys() : [])])].sort((a, b) => tot(cur, b) - tot(cur, a) || tot(base, b) - tot(base, a) || byName(a, b));
-  let h2 = `<table style="${TB}"><tr><th style="${H};text-align:left">Clinic</th>${top.map(d => `<th style="${HR}">${esc(shortCat(d))}</th>`).join('')}<th style="${HR}">Other</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">vs AM</th>` : `<th style="${HR}">Total</th>`}</tr>`;
-  let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? 'AM\tEOD\tvs AM' : 'Total'}\n`;
+  let h2 = `<table style="${TB}"><tr><th style="${H};text-align:left">Clinic</th>${top.map(d => `<th style="${HR}">${esc(shortCat(d))}</th>`).join('')}<th style="${HR}">Other</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">Difference</th>` : `<th style="${HR}">Total</th>`}</tr>`;
+  let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? 'AM\tEOD\tDifference' : 'Total'}\n`;
   for (const l of locs){
     const cm = cur.byLoc.get(l), bm = cmp ? base.byLoc.get(l) : null;
     const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return `<td style="${DR}">${n || (cmp && b ? 0 : '<span style="color:#bbb">·</span>')}${cmp ? delta(n, b, true) : ''}</td>`; }).join('');
