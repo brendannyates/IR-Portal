@@ -39,7 +39,7 @@ header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg
 .iconbtn[aria-pressed="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 @media(max-width:480px){.brand small{display:none}}
 /* main tabs: one segmented control */
-nav.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;margin:2px 12px 10px;padding:3px;background:var(--surface2);border-radius:10px}
+nav.tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:2px;margin:2px 12px 10px;padding:3px;background:var(--surface2);border-radius:10px}
 nav.tabs button{border:0;background:transparent;padding:6px 6px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:650;min-height:34px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;gap:2px}
 nav.tabs button:hover{color:var(--ink)}
 nav.tabs button[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px var(--line)}
@@ -251,6 +251,7 @@ table.wl tr.sub td:first-child{box-shadow:inset 3px 0 0 var(--accent-soft)}
 .selchip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 4px 2px 10px;font-size:12.5px;font-weight:650}
 .selchip button{border:0;background:transparent;color:inherit;cursor:pointer;width:20px;height:20px;border-radius:50%;font-size:15px;line-height:1;display:grid;place-items:center}
 .selchip button:hover{background:var(--accent);color:var(--accent-ink)}
+.flag{color:var(--warn);font-weight:800;margin-right:5px;font-size:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media print{header.top,.noprint{display:none!important}}
 </style>
@@ -279,7 +280,9 @@ function themePref(){ try { return localStorage.getItem('irTheme') || ''; } catc
 function applyTheme(){ const t = themePref(); if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
 const isDark = () => { const t = themePref(); return t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); };
 applyTheme();
-const startTab = () => { try { return localStorage.getItem('irStart') === 'rep' ? 'rep' : 'dash'; } catch { return 'dash'; } };
+// Clinic view (default) or Admin view, chosen per computer in Settings. A convenience, not a permission.
+const isAdmin = () => { try { return localStorage.getItem('irRole') === 'admin'; } catch { return false; } };
+const startTab = () => { try { return isAdmin() && localStorage.getItem('irStart') === 'rep' ? 'rep' : 'dash'; } catch { return 'dash'; } };
 const S = { ...wvLoad(), open: new Set(), wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
 
 // Columns are found by header name, so moving or inserting columns in the Filtered tab doesn't break anything.
@@ -341,7 +344,9 @@ const AUTH_CAT = 'ER/HIM/NB/Authorization Missing';
 const isCtrl = desc => desc === AUTH_CAT ? S.cfg.ctrl[desc] === true : S.cfg.ctrl[desc] !== false; // auth is off unless switched on in Settings
 const inView = r => S.allTypes || isCtrl(r.desc);
 // status + notes, one per incident; the most recent save wins and is copied to every day-part tab
-const STATUSES = ['Needs review', 'Reviewed', 'Submitted'];
+const CLEARED = 'Cleared from portal';
+const STATUSES = ['Needs review', 'Reviewed', 'Submitted', CLEARED];
+const isFlag = id => !!(noteRec(id) || {}).flag;
 const noteRec = id => S.notes[String(id)] || null;
 const noteOf = id => (noteRec(id) || {}).note || '';
 const statusOf = id => { const n = noteRec(id); return n && STATUSES.includes(n.status) ? n.status : (n && n.note ? 'Reviewed' : 'Needs review'); };
@@ -413,7 +418,7 @@ function sorted(rows){
   return rows.slice().sort((a, b) => { for (let i = 0; i < keys.length; i++){ const c = cmp(a, b, keys[i]) * (i === 0 ? dir : 1); if (c) return c; } return 0; });
 }
 // Worklist clinic picker: { mode: 'all' } or { mode: 'some', list: [...] }, remembered on this computer
-const WL_TABS = ['work', 'sig', 'clinic'];
+const WL_TABS = ['dash', 'work', 'sig', 'clinic'];
 function wlSave(){ try { localStorage.setItem('irWlClinics', JSON.stringify(S.wl)); } catch {} }
 const wlOn = () => WL_TABS.includes(S.tab) && !S.loc && S.wl && S.wl.mode === 'some';
 const wlHas = f => !wlOn() || S.wl.list.includes(f);
@@ -452,7 +457,7 @@ function wlBar(){
     ${!nSel ? '<div class="small badText" style="margin-top:6px">No clinics selected. Pick at least one to see items.</div>' : ''}</div>`;
 }
 const viewRows = () => scope().filter(inView);
-const ctrlRows = () => viewRows().filter(r => statusOf(r.id) !== 'Submitted'); // outreach lists skip submitted items
+const ctrlRows = () => viewRows().filter(r => !['Submitted', CLEARED].includes(statusOf(r.id))); // outreach lists skip submitted items
 function setLoc(v){ S.loc = v; try { localStorage.setItem('irLoc', v); } catch {} S.f.fac = ''; render(); window.scrollTo(0, 0); }
 const sentKey = (kind, name) => kind + ':' + name + (kind === 'p' && S.loc ? '|' + S.loc : '');
 const groupBy = (rows, k) => { const m = new Map(); for (const r of rows){ if (!m.has(r[k])) m.set(r[k], []); m.get(r[k]).push(r); } return m; };
@@ -633,7 +638,8 @@ function header(){
   const sigOpen = [...groupBy(sig, 'prov').keys()].filter(p => !sentFresh(sentKey('p', p))).length;
   const clin = ctrlRows().filter(r => routeOf(r.desc) === 'clinic');
   const clinOpen = [...groupBy(clin, 'fac').keys()].filter(f => !sentFresh('c:' + f)).length;
-  const tabs = [['dash', 'Clinic Dashboard', ''], ['rep', 'Reports', ''], ['work', 'Worklist', sigOpen + clinOpen ? `<span class="badge">${sigOpen + clinOpen}</span>` : '']];
+  const wb = sigOpen + (isAdmin() ? clinOpen : 0);
+  const tabs = [['dash', 'Clinic Dashboard', ''], ...(isAdmin() ? [['rep', 'Reports', '']] : []), ['work', 'Worklist', wb ? `<span class="badge">${wb}</span>` : '']];
   S._wbadges = { sig: sigOpen, clinic: clinOpen };
   return `<header class="top">${S.store.demo ? '<div class="demo-ribbon">Demo data: made-up patients and providers. Nothing here touches a workbook.</div>' : ''}
     <div class="bar"><div class="brand"><span class="dot">IR</span>IR Portal Tracker <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small></div>
@@ -652,16 +658,18 @@ function locList(){ return [...groupBy(S.rows.filter(inView), 'fac').entries()].
 function render(){
   if (S.loc && S.rows.length && !S.rows.some(r => r.fac === S.loc)) S.loc = ''; // location no longer on the tab
   if (!S.store) return;
+  if (!isAdmin() && S.tab === 'rep') S.tab = 'dash';
+  if (!isAdmin() && S.tab === 'clinic') S.tab = 'work';
   const hdr = header(); const inWork = ['work', 'sig', 'clinic'].includes(S.tab);
-  const wsub = inWork ? `<div class="subnav noprint">${[['work', 'Items'], ['sig', 'Signature reminders'], ['clinic', 'Clinic routing']].map(([k, l]) => `<button data-act="tab" data-v="${k}" aria-pressed="${S.tab === k}">${l}${S._wbadges && S._wbadges[k] ? ` <span class="badge">${S._wbadges[k]}</span>` : ''}</button>`).join('')}</div>` : '';
-  const body = S.loadErr && !['set', 'rep'].includes(S.tab) ? errHTML() : wsub + (inWork ? wlBar() : '') + ({ dash: dashHTML, rep: repHTML, work: workHTML, sig: sigHTML, clinic: clinicHTML, set: setHTML }[S.tab])();
+  const wsub = inWork ? `<div class="subnav noprint">${[['work', 'Items'], ['sig', 'Signature reminders'], ...(isAdmin() ? [['clinic', 'Clinic routing']] : [])].map(([k, l]) => `<button data-act="tab" data-v="${k}" aria-pressed="${S.tab === k}">${l}${S._wbadges && S._wbadges[k] ? ` <span class="badge">${S._wbadges[k]}</span>` : ''}</button>`).join('')}</div>` : '';
+  const body = S.loadErr && !['set', 'rep'].includes(S.tab) ? errHTML() : wsub + (inWork || S.tab === 'dash' ? wlBar() : '') + ({ dash: dashHTML, rep: repHTML, work: workHTML, sig: sigHTML, clinic: clinicHTML, set: setHTML }[S.tab])();
   $('#app').innerHTML = hdr + `<main>${body}</main>`;
 }
 function errHTML(){
   return `<div class="card"><h2>Can't read the data</h2><div class="msg bad">${esc(S.loadErr)}</div>
     <div class="small muted">The tracker reads the tab named in Settings and expects the headers in row 1 (columns can start in C).</div>
     ${S.sheets?.length ? `<label class="lbl" for="pickSheet">Read a different tab</label><div class="row"><select class="fld" id="pickSheet" style="max-width:320px">${S.sheets.map(n => `<option ${n === S.cfg.sheet ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select><button class="btn primary" data-act="useSheet">Use this tab</button></div>` : ''}
-    <div class="row" style="margin-top:10px"><button class="btn" data-act="refresh">Try again</button><button class="btn primary" data-act="tab" data-v="rep">Go to Reports</button></div></div>`;
+    <div class="row" style="margin-top:10px"><button class="btn" data-act="refresh">Try again</button>${isAdmin() ? `<button class="btn primary" data-act="tab" data-v="rep">Go to Reports</button>` : ''}</div></div>`;
 }
 
 // keyword highlights matched against the original portal description, whatever its category
@@ -675,19 +683,19 @@ const FOCUS_LABEL0 = { 'Incomplete Chart': 'Incomplete Chart', 'Missing Signatur
 let FOCUS = FOCUS0, FOCUS_LABEL = FOCUS_LABEL0;
 function focusSync(){ FOCUS = FOCUS0.map(dispCat); FOCUS_LABEL = Object.fromEntries(FOCUS0.map(f => [dispCat(f), dispCat(f) === f ? FOCUS_LABEL0[f] : dispCat(f)])); }
 function progress(rows){
-  const n = { total: rows.length, 'Needs review': 0, Reviewed: 0, Submitted: 0 };
+  const n = { total: rows.length, 'Needs review': 0, Reviewed: 0, Submitted: 0, [CLEARED]: 0 };
   for (const r of rows) n[statusOf(r.id)]++;
-  n.remaining = n['Needs review']; n.done = n.Reviewed + n.Submitted; n.pct = n.total ? Math.round(n.done / n.total * 100) : 0; return n;
+  n.Cleared = n[CLEARED]; n.remaining = n['Needs review']; n.done = n.Reviewed + n.Submitted + n.Cleared; n.pct = n.total ? Math.round(n.done / n.total * 100) : 0; return n;
 }
 function progBar(p){
   const w = x => p.total ? (x / p.total * 100).toFixed(1) : 0;
   return `<div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--surface2);margin:6px 0" role="img" aria-label="${p.Submitted} submitted, ${p.Reviewed} reviewed, ${p.remaining} remaining">
-    <div style="width:${w(p.Submitted)}%;background:var(--ok)"></div><div style="width:${w(p.Reviewed)}%;background:var(--info)"></div></div>
-    <div class="row small"><span><b style="color:var(--ok)">■</b> Submitted ${p.Submitted}</span><span><b style="color:var(--info)">■</b> Reviewed ${p.Reviewed}</span><span><b style="color:var(--muted)">■</b> Remaining ${p.remaining}</span><span class="grow"></span><b>${p.pct}% worked</b></div>`;
+    <div style="width:${w(p.Submitted)}%;background:var(--ok)"></div><div style="width:${w(p.Cleared)}%;background:var(--ok);opacity:.5"></div><div style="width:${w(p.Reviewed)}%;background:var(--info)"></div></div>
+    <div class="row small"><span><b style="color:var(--ok)">■</b> Submitted ${p.Submitted}</span>${p.Cleared ? `<span><b style="color:var(--ok);opacity:.5">■</b> Cleared ${p.Cleared}</span>` : ''}<span><b style="color:var(--info)">■</b> Reviewed ${p.Reviewed}</span><span><b style="color:var(--muted)">■</b> Remaining ${p.remaining}</span><span class="grow"></span><b>${p.pct}% worked</b></div>`;
 }
 function dashHTML(){
   focusSync(); const IC = dispCat('Incomplete Chart'), MS = dispCat('Missing Signature');
-  const all = viewRows(); const title = S.loc ? esc(S.loc) : 'All locations';
+  const all = viewRows(); const title = esc(wlLabel());
   const cnt = d => all.filter(r => r.desc === d).length; const p = progress(all);
   const past = all.filter(r => statusOf(r.id) === 'Needs review' && r.dueIn !== null && r.dueIn < 0).length;
   const kpi = (n, l, cls, act, v, sub, from) => `<button class="kpi ${cls}${n ? '' : ' zero'}" data-act="${act}" data-v="${esc(v || '')}" data-from="${esc(from || String(l).replace(/<[^>]*>/g, ''))}" title="Open these in the Worklist"><div class="n">${n}</div><div class="l">${l}</div>${sub ? `<div class="small muted">${sub}</div>` : ''}</button>`;
@@ -712,13 +720,14 @@ function dashHTML(){
       ${kpi(p.total, `Items · ${title}`, '', 'workStatus', '', S.allTypes ? 'all types' : 'controllable', 'All items')}
       ${(() => { const fr = all.filter(r => focusOf(r).length); const q = progress(fr); return kpi(fr.length, 'Focus items', 'focus', 'drillFocus', '*', `${focusKw().map(f => `${esc(f.label)} ${all.filter(r => hasFocus(r, f.label)).length}`).join(' · ')}${fr.length ? ` · ${q.remaining} remaining` : ''}`); })()}
       ${kpi(cnt(MS), esc(MS), 'info', 'drillDesc', MS, `${progress(all.filter(r => r.desc === MS)).remaining} remaining`)}
-      ${kpi(p.remaining, 'Remaining', p.remaining ? 'warn' : '', 'workStatus', 'Needs review', `${p.Reviewed} reviewed · ${p.Submitted} submitted`)}
+      ${kpi(p.remaining, 'Remaining', p.remaining ? 'warn' : '', 'workStatus', 'Needs review', `${p.Reviewed} reviewed · ${p.Submitted} submitted${p.Cleared ? ` · ${p.Cleared} cleared` : ''}`)}
+      ${(() => { const n = incidents(all.filter(r => isFlag(r.id))).length; return n ? kpi(n, 'Flagged for follow-up', 'warn', 'workStatus', 'flag', 'incidents', 'Flagged for follow-up') : ''; })()}
       ${kpi(past, 'Past due, not reviewed', past ? 'bad' : '', 'dueFilter', 'past')}
       ${kpi(cnt(IC), esc(IC), '', 'drillDesc', IC)}
     </div>
     <div class="cols"><div>
       <div class="card"><h2>Work list progress<span class="sp"></span><span class="small muted">${title}</span></h2>${progBar(p)}${progTable}
-        <div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="progEmail">Progress recap email</button><span class="small muted">Remaining = items − reviewed − submitted.</span></div></div>
+        <div class="row" style="margin-top:8px"><button class="btn sm primary" data-act="progEmail">Progress recap email</button><span class="small muted">Remaining = items not yet reviewed, submitted or cleared.</span></div></div>
     </div><div>${right}</div></div>`;
 }
 function focusTable(rows){
@@ -728,10 +737,11 @@ function focusTable(rows){
 }
 function incCard(g){
   const r = g.first; const st = statusOf(g.id);
-  return `<div class="srow" style="cursor:pointer" data-act="inc" data-id="${esc(g.id)}" role="button" tabindex="0"><div class="row" style="gap:6px"><span class="name">${esc(S.cfg.codify ? r.code : r.name) || '—'}</span><span class="meta">MRN ${esc(r.mrn)} · DOS ${fmtD(r.dos)}${r.due ? ' · due <span class="' + (r.dueIn < 0 ? 'due-bad' : '') + '">' + fmtD(r.due) + '</span>' : ''}</span><span class="grow"></span>${statusPill(st)}</div>
+  return `<div class="srow" style="cursor:pointer" data-act="inc" data-id="${esc(g.id)}" role="button" tabindex="0"><div class="row" style="gap:6px"><span class="name">${esc(S.cfg.codify ? r.code : r.name) || '—'}</span><span class="meta">MRN ${esc(r.mrn)} · DOS ${fmtD(r.dos)}${r.due ? ' · due <span class="' + (r.dueIn < 0 ? 'due-bad' : '') + '">' + fmtD(r.due) + '</span>' : ''}</span><span class="grow"></span>${flagIcon(g.id)}${statusPill(st)}</div>
     <div class="line small">${g.descs.map(d => `<span class="pill" style="margin:2px 4px 0 0">${esc(d)}</span>`).join('')}<span class="muted">${esc(r.prov)}</span></div>${noteOf(g.id) ? `<div class="line small" style="white-space:pre-wrap">📝 ${esc(noteOf(g.id))}</div>` : ''}</div>`;
 }
-const statusPill = st => `<span class="pill ${st === 'Submitted' ? 'ok' : st === 'Reviewed' ? 'info' : 'warn'}">${esc(st)}</span>`;
+const statusPill = st => `<span class="pill ${st === 'Submitted' ? 'ok' : st === 'Reviewed' ? 'info' : st === CLEARED ? '' : 'warn'}">${esc(st)}</span>`;
+const flagIcon = id => isFlag(id) ? '<span class="flag" title="Flagged for follow-up" aria-label="Flagged for follow-up">⚑</span>' : '';
 // one entry per incident; an incident with several rows/descriptions shows them together
 function incidents(rows){
   const m = new Map();
@@ -742,7 +752,7 @@ function incidents(rows){
 function filtered(){
   const f = S.f; const q = norm(f.q);
   return scope().filter(r => (inView(r) || (f.desc && r.desc === f.desc)) && (!f.fac || r.fac === f.fac) && (!f.prov || r.prov === f.prov) && (!f.desc || r.desc === f.desc)
-    && (!f.st || statusOf(r.id) === f.st) && (!f.fk || (f.fk === '*' ? focusOf(r).length > 0 : hasFocus(r, f.fk)))
+    && (f.st === 'flag' ? isFlag(r.id) : f.st ? statusOf(r.id) === f.st : statusOf(r.id) !== CLEARED) && (!f.fk || (f.fk === '*' ? focusOf(r).length > 0 : hasFocus(r, f.fk)))
     && (!f.due || (f.due === 'past' ? r.dueIn !== null && r.dueIn < 0 : r.dueIn !== null && r.dueIn >= 0 && r.dueIn <= 7))
     && (!q || [r.id, r.name, r.code, r.mrn, r.desc, r.raw, r.fac, r.prov, r.org, noteOf(r.id)].some(x => norm(x).includes(q))));
 }
@@ -754,7 +764,7 @@ function workHTML(){
   const rowHTML = (g, sub) => {
     const r = g.first; const st = statusOf(g.id), note = noteOf(g.id), due = g.rows.reduce((m, x) => x.due && (!m || x.due < m) ? x.due : m, null);
     return `<tr class="${g.rows.some(x => isCtrl(x.desc)) ? '' : 'nc'}${sub ? ' sub' : ''}" data-act="inc" data-id="${esc(g.id)}" style="cursor:pointer">
-      <td data-l="Status" onclick="event.stopPropagation()"><select class="fld" data-stat="${esc(g.id)}" aria-label="Status" style="min-height:30px;padding:3px 6px;width:auto">${STATUSES.map(x => `<option ${x === st ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
+      <td data-l="Status" onclick="event.stopPropagation()" style="white-space:nowrap">${flagIcon(g.id)}<select class="fld" data-stat="${esc(g.id)}" aria-label="Status" style="min-height:30px;padding:3px 6px;width:auto">${STATUSES.map(x => `<option ${x === st ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
       <td data-l="Clinic">${esc(r.fac)}</td><td data-l="Provider">${esc(r.prov)}</td><td data-l="MRN">${esc(r.mrn)}</td><td data-l="Patient">${esc(S.cfg.codify ? r.code : r.name)}</td>
       <td data-l="Description">${g.rows.map(x => `<div>${esc(x.desc)}</div>`).join('')}${g.rows.length > 1 ? `<span class="pill" style="margin-top:2px">${g.rows.length} items</span>` : ''}</td>
       <td data-l="DOS">${fmtD(r.dos)}${r.age !== null ? `<div class="small muted">${r.age}d · ${esc(r.agecatL)}</div>` : ''}</td><td data-l="Due" class="${due && days(due, today()) < 0 ? 'due-bad' : due && days(due, today()) <= 7 ? 'due-warn' : ''}">${fmtD(due)}</td>
@@ -773,7 +783,7 @@ function workHTML(){
       const pastDue = all.some(x => x.dueIn !== null && x.dueIn < 0 && statusOf(x.id) === 'Needs review');
       const label = S.collapse === 'mrn' ? `<b>MRN ${esc(k)}</b> <span class="muted">${esc(S.cfg.codify ? r.code : r.name)} · ${esc([...new Set(all.map(x => x.fac))].join(', '))}</span>` : `<b>${esc(k)}</b>`;
       const meta = [ds.length ? (ds.length > 1 ? `DOS ${fmtD(ds[ds.length - 1])} → ${fmtD(ds[0])}` : `DOS ${fmtD(ds[0])}`) : '', S.collapse === 'mrn' ? [...new Set(all.map(x => x.desc))].length + ' description' + ([...new Set(all.map(x => x.desc))].length === 1 ? '' : 's') : `${[...new Set(all.map(x => x.mrn))].length} MRNs`, rem ? `${rem} to review` : 'all worked'].filter(Boolean).join(' · ');
-      return `<tr class="cgrp${open ? ' open' : ''}" data-act="grpToggle" data-g="${esc(S.collapse + ':' + k)}" tabindex="0" aria-expanded="${open}"><td colspan="10"><div class="cg"><span class="cg-caret" aria-hidden="true">▸</span><span class="cg-n" title="${items} item${items === 1 ? '' : 's'}">${items}</span><span class="cg-l">${label}</span>${pastDue ? '<span class="pill bad">past due</span>' : ''}<span class="grow"></span><span class="small muted">${meta}</span></div></td></tr>`
+      return `<tr class="cgrp${open ? ' open' : ''}" data-act="grpToggle" data-g="${esc(S.collapse + ':' + k)}" tabindex="0" aria-expanded="${open}"><td colspan="10"><div class="cg"><span class="cg-caret" aria-hidden="true">▸</span><span class="cg-n" title="${items} item${items === 1 ? '' : 's'}">${items}</span><span class="cg-l">${label}</span>${pastDue ? '<span class="pill bad">past due</span>' : ''}${us.some(u => isFlag(u.id)) ? '<span class="pill warn">⚑ flagged</span>' : ''}<span class="grow"></span><span class="small muted">${meta}</span></div></td></tr>`
         + (open ? us.map(u => rowHTML(u, true)).join('') : '');
     }).join('');
   } else {
@@ -785,19 +795,20 @@ function workHTML(){
       return h + rowHTML(g);
     }).join('');
   }
+  const clearedN = incidents(scope().filter(r => inView(r) && statusOf(r.id) === CLEARED)).length;
   const f = S.f; const active = f.q || f.fac || f.prov || f.desc || f.due || f.st || f.fk; const p = progress(rows);
   const from = S.fromDash && active ? `<div class="fromdash noprint"><span>From the Clinic Dashboard: <b>${esc(S.fromDash)}</b></span><span class="grow"></span><button class="linkbtn" data-act="clearFilt">Show all items</button><button class="linkbtn" data-act="tab" data-v="dash">← Back to dashboard</button></div>` : '';
   return from + `<div class="card noprint"><div class="row">
       <input class="fld grow" style="min-width:180px" id="q" placeholder="Search name, MRN, incident, provider, note…" value="${esc(f.q)}" aria-label="Search">
       <select class="fld" style="width:auto;max-width:240px" data-filt="desc" aria-label="Description"><option value="">All descriptions</option>${opts('desc', f.desc)}</select>
-      <select class="fld" style="width:auto" data-filt="st" aria-label="Status"><option value="">Any status</option>${STATUSES.map(x => `<option ${f.st === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
+      <select class="fld" style="width:auto" data-filt="st" aria-label="Status"><option value="">Open statuses</option>${STATUSES.map(x => `<option ${f.st === x ? 'selected' : ''}>${x}</option>`).join('')}<option value="flag" ${f.st === 'flag' ? 'selected' : ''}>⚑ Flagged for follow-up</option></select>
       <select class="fld" style="width:auto" data-filt="due" aria-label="Due"><option value="">Any due date</option><option value="past" ${f.due === 'past' ? 'selected' : ''}>Past due</option><option value="soon" ${f.due === 'soon' ? 'selected' : ''}>Due in 7 days</option></select>
     </div><div class="row viewbar" style="margin-top:8px">
       <label class="small muted" for="wsortSel" style="font-weight:650">Sort</label><select class="fld" id="wsortSel" style="width:auto;min-height:32px;padding:4px 8px">${S.collapse ? '' : `<option value="" ${!S.wsort && !S.sort ? 'selected' : ''}>Clinic, provider, MRN (default)</option>`}${S.sort ? '<option value="" selected>Column header sort</option>' : ''}${Object.entries(WSORTS).map(([k, [l]]) => `<option value="${k}" ${!S.sort && wsortNow() === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <label class="small muted" for="collapseSel" style="font-weight:650;margin-left:6px">Collapse by</label><select class="fld" id="collapseSel" style="width:auto;min-height:32px;padding:4px 8px"><option value="">None</option><option value="mrn" ${S.collapse === 'mrn' ? 'selected' : ''}>MRN</option><option value="desc" ${S.collapse === 'desc' ? 'selected' : ''}>Description</option></select>
       ${S.collapse ? '<button class="linkbtn" data-act="grpAll" data-v="1">Expand all</button><button class="linkbtn" data-act="grpAll" data-v="0">Collapse all</button>' : ''}
     </div><div class="row" style="margin-top:8px"><span class="small muted">${inc.length} incidents · ${rows.length} items · ${p.remaining} remaining · ${esc(wlLabel())}${f.fk ? ' · <b>focus items only</b>' : ''} · click a row to open it</span><span class="grow"></span>
-      ${S.sort || S.wsort ? '<button class="linkbtn" data-act="sortReset">Default sort</button>' : ''}${active ? '<button class="linkbtn" data-act="clearFilt">Clear filters</button>' : ''}<button class="btn sm" data-act="copyList">Copy list</button><button class="btn sm" data-act="progEmail">Progress recap</button></div></div>
+      ${S.sort || S.wsort ? '<button class="linkbtn" data-act="sortReset">Default sort</button>' : ''}${active ? '<button class="linkbtn" data-act="clearFilt">Clear filters</button>' : ''}${!f.st && clearedN ? `<button class="linkbtn" data-act="showCleared">Show ${clearedN} cleared</button>` : ''}<label class="btn sm" style="display:inline-flex;align-items:center" title="Upload a newer IR Portal export. Items no longer on it are marked Cleared from portal; notes stay with open items.">Upload updated report…<input type="file" data-plupload="1" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>${S.store.demo ? '<button class="btn sm" data-act="demoUpdate">Sample update</button>' : ''}<button class="btn sm" data-act="copyList">Copy list</button><button class="btn sm" data-act="progEmail">Progress recap</button></div>${S.cfg.updAt && S.sheetName === UPD ? `<div class="small muted" style="margin-top:6px">Updated ${new Date(S.cfg.updAt).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${S.cfg.updFrom ? ' from ' + esc(S.cfg.updFrom) : ''}.</div>` : ''}</div>
     <div class="card" style="padding:0"><div class="tblwrap" style="max-height:72vh"><table class="wl"><thead><tr>${th('status', 'Status')}${th('fac', 'Clinic')}${th('prov', 'Provider')}${th('mrn', 'MRN')}${th('name', 'Patient')}${th('desc', 'Description')}${th('dos', 'DOS')}${th('due', 'Due')}<th>Notes</th>${th('id', 'Incident')}</tr></thead>
       <tbody>${body || '<tr><td colspan="10" class="empty">Nothing matches these filters.</td></tr>'}</tbody></table></div></div>`;
 }
@@ -869,13 +880,15 @@ function editIncident(id){
     ${rows.map(x => `<div class="srow" style="background:var(--surface2)"><div class="row"><b>${esc(x.desc)}</b>${isCtrl(x.desc) ? '' : '<span class="pill">Non-controllable</span>'}</div><div class="small muted" style="white-space:pre-wrap;word-break:break-word">${esc(x.raw)}</div>${x.act && typeof x.act === 'string' ? `<div class="small muted">Last activity: ${esc(x.act)}</div>` : ''}</div>`).join('')}
     <label class="lbl" for="incStatus">Status</label><select class="fld" id="incStatus" style="max-width:240px">${STATUSES.map(x => `<option ${x === statusOf(id) ? 'selected' : ''}>${x}</option>`).join('')}</select>
     <label class="lbl" for="incNote">Note <span class="muted">(saved to column B on every day-part tab for this incident)</span></label><textarea class="fld" id="incNote" style="min-height:90px">${esc(noteOf(id))}</textarea>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="incFlag" ${isFlag(id) ? 'checked' : ''}> ⚑ Flag for follow-up or escalation</label>
     ${rec && rec.at ? `<div class="small muted" style="margin-top:4px">Last saved ${new Date(rec.at).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${rec.by ? ' by ' + esc(rec.by) : ''}</div>` : ''}
     <div class="row" style="margin-top:12px"><button class="btn primary" data-act="incSave" data-id="${esc(id)}">Save</button><button class="btn" data-act="closeModal">Cancel</button><span class="grow"></span><span class="small muted">Adding a note moves Needs review to Reviewed.</span></div>`);
 }
 async function saveIncident(id, note, status, opts = {}){
   note = String(note ?? '').trim();
   if (note && status === 'Needs review' && !opts.keepStatus) status = 'Reviewed';
-  S.notes[id] = { note, status, at: new Date().toISOString(), by: S.cfg.signoff || '' };
+  const flag = opts.flag !== undefined ? !!opts.flag : isFlag(id);
+  S.notes[id] = { note, status, at: new Date().toISOString(), by: S.cfg.signoff || '', ...(flag ? { flag: true } : {}) };
   const all = Object.assign({}, S.store.getDoc('irNotes') || {}, { [id]: S.notes[id] });
   await S.store.setDoc('irNotes', all);
   render();
@@ -893,7 +906,7 @@ async function sheetIndex(sheet, force){
 }
 function noteTabs(){
   const R = S.rep || { ir: {}, has: () => false };
-  return [...new Set([...Object.values(R.ir).map(x => x.sheet), ...PARTS.map(p => p.filtered).filter(n => R.has(n))])];
+  return [...new Set([...Object.values(R.ir).map(x => x.sheet), ...PARTS.map(p => p.filtered).filter(n => R.has(n)), ...((S.sheets || []).includes(UPD) ? [UPD] : [])])];
 }
 async function writeNotes(ids, onlySheets){
   for (const sheet of onlySheets || noteTabs()){
@@ -918,9 +931,9 @@ function progressEmail(){
   const byFocus = [...focusKw().map(f => [f.label, rows.filter(r => hasFocus(r, f.label))]), [dispCat('Missing Signature'), rows.filter(r => r.desc === dispCat('Missing Signature'))]];
   const byDesc = [...groupBy(rows, 'desc').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
   const byFac = S.loc || (wlOn() && S.wl.list.length <= 1) ? null : [...groupBy(rows, 'fac').entries()].sort((a, b) => byName(a[0], b[0]));
-  const line = `${where}: ${p.done} of ${p.total} items worked (${p.pct}%). ${p.Reviewed} reviewed, ${p.Submitted} submitted, ${p.remaining} remaining.`;
+  const line = `${where}: ${p.done} of ${p.total} items worked (${p.pct}%). ${p.Reviewed} reviewed, ${p.Submitted} submitted, ${p.Cleared ? p.Cleared + ' cleared from the portal, ' : ''}${p.remaining} remaining.`;
   rptEmail({ who: `${where} progress`, subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`,
-    body: n => wrap(`<p style="margin:0 0 6px">${esc(where)} work list update:</p>${n ? `<p style="margin:0 0 8px">${esc(n).replace(/\n/g, '<br>')}</p>` : ''}<p style="margin:0 0 6px"><b>${p.remaining} remaining</b> of ${p.total} (${p.Reviewed} reviewed, ${p.Submitted} submitted).</p>${table('Description', byDesc)}${byFac ? table('Clinic', byFac) : ''}`),
+    body: n => wrap(`<p style="margin:0 0 6px">${esc(where)} work list update:</p>${n ? `<p style="margin:0 0 8px">${esc(n).replace(/\n/g, '<br>')}</p>` : ''}<p style="margin:0 0 6px"><b>${p.remaining} remaining</b> of ${p.total} (${p.Reviewed} reviewed, ${p.Submitted} submitted${p.Cleared ? `, ${p.Cleared} cleared from the portal` : ''}).</p>${table('Description', byDesc)}${byFac ? table('Clinic', byFac) : ''}`),
     text: n => `${where} work list update:\n\n${n ? n + '\n\n' : ''}${line}\n\n${txt('Description', byDesc)}${byFac ? '\n\n' + txt('Clinic', byFac) : ''}` });
 }
 
@@ -1041,6 +1054,8 @@ function setHTML(){
   const sel = (d) => { const v = routeOf(d); return `<select class="fld" data-route="${esc(d)}" style="width:auto;min-width:175px"><option value="provider" ${v === 'provider' ? 'selected' : ''}>Provider reminder</option><option value="clinic" ${v === 'clinic' ? 'selected' : ''}>Clinic action list</option><option value="none" ${v === 'none' ? 'selected' : ''}>Track only</option></select>`; };
   return `${S.loadErr ? `<div class="msg bad">${esc(S.loadErr)}</div>` : ''}
   <div class="cols"><div>
+    <div class="card"><h2>View</h2><div class="small muted" style="margin-bottom:8px">Clinic view shows the Clinic Dashboard, Worklist, signature reminders and progress recap. Admin view adds Reports (AM / Noon / EOD updates, weekly ER report) and clinic routing. Saved on this computer only.</div>
+      <div class="seg" role="group" aria-label="View">${[['clinic', 'Clinic view'], ['admin', 'Admin view']].map(([k, l]) => `<button data-act="setRole" data-v="${k}" aria-pressed="${(isAdmin() ? 'admin' : 'clinic') === k}">${l}</button>`).join('')}</div></div>
     <div class="card"><h2>Descriptions</h2>
       <div class="small muted" style="margin-bottom:6px">Tick what counts as controllable. Non-controllable items stay off the reminder emails and action lists, and are hidden in the worklist unless you choose to show them.</div>
       <table class="set"><thead><tr><th>Controllable</th><th>Description</th><th>Rows</th><th>Route to</th></tr></thead><tbody>
@@ -1049,10 +1064,10 @@ function setHTML(){
     <div class="card"><h2>Focus highlights</h2><div class="small muted" style="margin-bottom:6px">Items whose original portal description contains any of these words are counted in the Focus items number at the top of the Clinic Dashboard. Separate words with commas.</div>
       <table class="set"><thead><tr><th>Label</th><th>Keywords</th><th></th></tr></thead><tbody>${focusKw().map((f, i) => `<tr><td><input class="fld" data-fk="${i}" data-k="label" value="${esc(f.label)}" style="max-width:160px" aria-label="Label"></td><td><input class="fld" data-fk="${i}" data-k="words" value="${esc(f.words)}" aria-label="Keywords"></td><td><button class="linkbtn" data-act="fkDel" data-v="${i}">Remove</button></td></tr>`).join('')}</tbody></table>
       <div class="row" style="margin-top:6px"><button class="btn sm" data-act="fkAdd">Add highlight</button><button class="linkbtn" data-act="fkReset">Reset to Tx report / Infusion note / BH Master</button></div></div>
-    <div class="card"><h2>My default clinics</h2><div class="small muted" style="margin-bottom:8px">The Worklist remembers your last clinic selection on this computer. These clinics are used the first time, and whenever you choose "My default" in the Worklist clinic menu. Each person sets their own.</div>
+    <div class="card"><h2>My default clinics</h2><div class="small muted" style="margin-bottom:8px">The Clinic Dashboard and Worklist remember your last clinic selection on this computer. These clinics are used the first time, and whenever you choose "My default" in the clinic menu. Each person sets their own.</div>
       <div class="row">${msHTML('def')}<button class="btn sm" data-act="msDefault">Apply to the Worklist now</button></div></div>
-    <div class="card"><h2>Default view</h2><div class="small muted" style="margin-bottom:6px">What opens first on this computer. Each person sets their own.</div>
-      <div class="seg" role="group" aria-label="Default view">${[['dash', 'Clinic Dashboard'], ['rep', 'Reports']].map(([k, l]) => `<button data-act="setStart" data-v="${k}" aria-pressed="${startTab() === k}">${l}</button>`).join('')}</div></div>
+    ${!isAdmin() ? '' : `<div class="card"><h2>Default view</h2><div class="small muted" style="margin-bottom:6px">What opens first on this computer. Each person sets their own.</div>
+      <div class="seg" role="group" aria-label="Default view">${[['dash', 'Clinic Dashboard'], ['rep', 'Reports']].map(([k, l]) => `<button data-act="setStart" data-v="${k}" aria-pressed="${startTab() === k}">${l}</button>`).join('')}</div></div>`}
     <div class="card"><h2>Data source</h2><label class="lbl" for="sheetIn">Tab the dashboard reads ("auto" = the latest day-part export: EOD, then Noon, then AM)</label>
       <div class="row"><input class="fld grow" id="sheetIn" value="${esc(c.sheet)}" list="sheetList"><datalist id="sheetList">${(S.sheets || []).map(n => `<option value="${esc(n)}">`).join('')}</datalist><button class="btn" data-act="saveSheet">Read it</button></div>
       <label class="chk" style="margin-top:10px"><input type="checkbox" id="codifyIn" ${c.codify ? 'checked' : ''}> Use codified patient IDs (SMIJOH) in emails, lists and printouts</label></div>
@@ -1068,20 +1083,20 @@ function setHTML(){
       <div class="tblwrap"><table class="set"><thead><tr><th>Provider (as on the tab)</th><th>Home clinic · clinics with items</th><th>Email</th><th>Greeting</th><th>Supervisor cc</th><th>Practice leader cc</th></tr></thead><tbody>
         ${provs.map(p => { const x = c.providers[p] || {}; return `<tr><td>${esc(p)}${x.dirName ? `<div class="small muted">${esc(x.dirName)}${x.title ? ' · ' + esc(x.title) : ''}${x.status && x.status !== 'ACTIVE' ? ' · <span class="badText">' + esc(titleCase(x.status)) + '</span>' : ''}</div>` : ''}${x.dirNote ? `<div class="small warnText">${esc(x.dirNote)}</div>` : ''}</td><td class="small"><b>${esc(x.home || (x.homeRaw ? x.homeRaw : '—'))}</b><div class="muted">${esc(provClinics(p))}</div></td><td><input class="fld" data-prov="${esc(p)}" data-k="email" value="${esc(x.email)}" aria-label="Email for ${esc(p)}"></td><td><input class="fld" data-prov="${esc(p)}" data-k="greet" value="${esc(x.greet)}" placeholder="${esc(firstName(p))}" style="max-width:110px" aria-label="Greeting"></td><td><input class="fld" data-prov="${esc(p)}" data-k="sup" value="${esc(x.sup)}" placeholder="default" aria-label="Supervisor"></td><td><input class="fld" data-prov="${esc(p)}" data-k="leader" value="${esc(x.leader)}" placeholder="if other office" aria-label="Practice leader"></td></tr>`; }).join('') || '<tr><td colspan="6" class="empty">Providers with signature items appear here.</td></tr>'}
       </tbody></table></div></div>
-    <div class="card"><h2>Clinic action lists</h2>
+    ${!isAdmin() ? '' : `<div class="card"><h2>Clinic action lists</h2>
       <label class="lbl" for="ccClinic">Always cc on clinic emails</label><input class="fld" id="ccClinic" data-cfg="ccClinic" value="${esc(c.ccClinic)}">
       <label class="lbl" for="clinicIntro">Message</label><textarea class="fld" id="clinicIntro" data-cfg="clinicIntro">${esc(c.clinicIntro)}</textarea>
       <h3>Clinic contacts</h3>
       <div class="tblwrap"><table class="set"><thead><tr><th>Location</th><th>Clinic email</th><th>Practice leader cc</th></tr></thead><tbody>
         ${facs.map(f => { const x = c.clinics[f] || {}; return `<tr><td>${esc(f)}</td><td><input class="fld" data-clinic="${esc(f)}" data-k="email" value="${esc(x.email)}" aria-label="Clinic email for ${esc(f)}"></td><td><input class="fld" data-clinic="${esc(f)}" data-k="leader" value="${esc(x.leader)}" aria-label="Leader for ${esc(f)}"></td></tr>`; }).join('') || '<tr><td colspan="3" class="empty">Locations with clinic items appear here.</td></tr>'}
-      </tbody></table></div></div>
-    <div class="card"><h2>Daily update emails (Reports tab)</h2>
+      </tbody></table></div></div>`}
+    ${!isAdmin() ? '' : `<div class="card"><h2>Daily update emails (Reports tab)</h2>
       <label class="lbl" for="rptTo">To</label><input class="fld" id="rptTo" data-cfg="rptTo" value="${esc(c.rptTo)}">
       <label class="lbl" for="rptCc">Cc</label><input class="fld" id="rptCc" data-cfg="rptCc" value="${esc(c.rptCc)}">
       <label class="lbl" for="rptSubject">Subject (the date is added)</label><input class="fld" id="rptSubject" data-cfg="rptSubject" value="${esc(c.rptSubject)}">
       <label class="lbl" for="erIntro">Weekly ER email opening line</label><textarea class="fld" id="erIntro" data-cfg="erIntro" style="min-height:60px">${esc(c.erIntro)}</textarea>
       <label class="lbl">Weekly ER: revenue types kept (non-interventional)</label>
-      <div class="row">${[...new Set([...Object.values(REV_TYPE), 'Not Coded - Missing Chart'])].sort(byName).map(r => `<label class="chk small" style="font-weight:600"><input type="checkbox" data-erkeep="${esc(r)}" ${erKeep().includes(r) ? 'checked' : ''}> ${esc(r)}</label>`).join('')}</div></div>
+      <div class="row">${[...new Set([...Object.values(REV_TYPE), 'Not Coded - Missing Chart'])].sort(byName).map(r => `<label class="chk small" style="font-weight:600"><input type="checkbox" data-erkeep="${esc(r)}" ${erKeep().includes(r) ? 'checked' : ''}> ${esc(r)}</label>`).join('')}</div></div>`}
     <div class="card"><h2>Email footer</h2>
       <label class="lbl" for="signoff">Sign-off name</label><input class="fld" id="signoff" data-cfg="signoff" value="${esc(c.signoff)}">
       <label class="lbl" for="disclaimer">Confidentiality disclaimer</label><textarea class="fld" id="disclaimer" data-cfg="disclaimer" style="min-height:110px">${esc(c.disclaimer)}</textarea></div>
@@ -1203,11 +1218,14 @@ document.addEventListener('click', async ev => {
     fkAdd: async () => { S.cfg.focusKw = [...focusKw(), { label: 'New highlight', words: '' }]; await saveCfg(); render(); },
     fkDel: async () => { const a = focusKw().slice(); a.splice(+v, 1); S.cfg.focusKw = a; await saveCfg(); render(); },
     fkReset: async () => { S.cfg.focusKw = null; await saveCfg(); render(); toast('ok', 'Highlights reset.'); },
+    showCleared: () => { closeModal(); S.fromDash = ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: CLEARED }; S.tab = 'work'; render(); },
+    demoUpdate: async () => { try { await demoUpdate(); } catch (e){ busy(false); toast('bad', esc(e.message || e)); } },
+    setRole: () => { try { localStorage.setItem('irRole', v); } catch {} if (v !== 'admin' && ['rep', 'clinic'].includes(S.tab)) S.tab = 'dash'; render(); toast('ok', v === 'admin' ? 'Admin view on this computer.' : 'Clinic view on this computer.'); },
     setStart: () => { try { localStorage.setItem('irStart', v); } catch {} render(); toast('ok', `${v === 'rep' ? 'Reports' : 'Clinic Dashboard'} will open first on this computer.`); },
     renameCat: () => renameCat(b.dataset.c),
     renameSave: async () => { if (!renameCheck()) { if (S._rn && S._rn.needEx && !($('#rnEx')?.value || '').trim()) toast('warn', 'Paste an example description first.'); return; } const oldN = b.dataset.c, newN = $('#rnNew').value.trim(); S._rn = null; closeModal(); if (newN !== oldN) await renameApply(oldN, newN); },
     unrename: async () => { const m = Object.assign({}, S.cfg.rename); delete m[b.dataset.k]; S.cfg.rename = m; await saveCfg(); S.irCache = null; await reload(true); toast('ok', 'Rename undone. Rebuild a Filtered tab to update it.'); },
-    incSave: async () => { const id = b.dataset.id; const note = $('#incNote').value, st = $('#incStatus').value; closeModal(); await saveIncident(id, note, st); toast('ok', 'Saved.'); },
+    incSave: async () => { const id = b.dataset.id; const note = $('#incNote').value, st = $('#incStatus').value, flag = $('#incFlag').checked; closeModal(); await saveIncident(id, note, st, { flag }); toast('ok', 'Saved.'); },
     progEmail: () => progressEmail(),
     workStatus: () => { S.fromDash = b.dataset.from || ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: v }; S.tab = 'work'; render(); window.scrollTo(0, 0); },
     drillFocus: () => { S.fromDash = b.dataset.from || ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: v }; S.tab = 'work'; render(); window.scrollTo(0, 0); },
@@ -1233,7 +1251,7 @@ document.addEventListener('click', async ev => {
     sortReset: () => { S.sort = null; S.wsort = ''; wvSave(); render(); },
     clearFilt: () => { S.fromDash = ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '' }; render(); },
     toggleNC: () => { S.f.nc = b.checked; render(); },
-    copyList: async () => { const rs = sorted(filtered()); const cols = [['Status', r => statusOf(r.id)], ['Notes', r => noteOf(r.id)], ['Clinic', r => r.fac], ['Provider', r => r.prov], ['MRN', r => r.mrn], ['Description', r => r.desc], ['Patient', pt], ['DOS', r => fmtD(r.dos)], ['Due', r => fmtD(r.due)], ['Incident ID', r => r.id]];
+    copyList: async () => { const rs = sorted(filtered()); const cols = [['Status', r => statusOf(r.id)], ['Flag', r => isFlag(r.id) ? 'Follow up' : ''], ['Notes', r => noteOf(r.id)], ['Clinic', r => r.fac], ['Provider', r => r.prov], ['MRN', r => r.mrn], ['Description', r => r.desc], ['Patient', pt], ['DOS', r => fmtD(r.dos)], ['Due', r => fmtD(r.due)], ['Incident ID', r => r.id]];
       const ok = await copyRich(wrap(tableHTML(cols, rs)), [cols.map(c => c[0]).join('\t'), ...rs.map(r => cols.map(c => c[1](r)).join('\t'))].join('\n')); toast(ok ? 'ok' : 'bad', ok ? `Copied ${rs.length} rows.` : 'Copy was blocked by the browser.'); },
     sigView: () => { S.sigView = v; render(); }, clinView: () => { S.clinView = v; render(); },
     provEmail: () => showEmail(provEmail(b.dataset.p), 'editProv', 'p'),
@@ -1275,6 +1293,7 @@ document.addEventListener('change', async e => {
   if (t.id === 'locSel'){ setLoc(t.value); return; }
   if (t.id === 'allTypesChk'){ S.allTypes = t.checked; try { localStorage.setItem('irAll', t.checked ? '1' : '0'); } catch {} render(); return; }
   if (t.dataset.stat){ const id = t.dataset.stat; await saveIncident(id, noteOf(id), t.value, { keepStatus: true }); toast('ok', `Marked ${esc(t.value)}.`); return; }
+  if (t.dataset.plupload){ const f = t.files && t.files[0]; t.value = ''; if (f) plUpload(f); return; }
   if (t.dataset.upload){ const f = t.files && t.files[0]; t.value = ''; if (f) uploadPart(t.dataset.upload, f); return; }
   if (t.dataset.fk !== undefined){ const a = focusKw().map(x => Object.assign({}, x)); a[+t.dataset.fk][t.dataset.k] = t.value.trim(); S.cfg.focusKw = a; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.erkeep !== undefined){ const k = new Set(erKeep()); t.checked ? k.add(t.dataset.erkeep) : k.delete(t.dataset.erkeep); S.cfg.erKeep = [...k]; S.erCache = null; await saveCfg(); toast('ok', 'Saved.'); return; }
@@ -1578,6 +1597,74 @@ async function showErEmail(){
 function loadXLSX(){
   if (window.XLSX) return Promise.resolve();
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = res; s.onerror = () => rej(new Error('Couldn\'t load the file reader. Check the internet connection.')); document.head.appendChild(s); });
+}
+async function readExport(file){
+  await loadXLSX();
+  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
+  let values = null;
+  for (const n of wb.SheetNames){ const ws = wb.Sheets[n]; const v = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true }); if (findHeader(v, ['incident id', 'description', 'facility']) >= 0){ const st = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s : { r: 0, c: 0 }; values = [...Array(st.r).fill(null).map(() => []), ...v.map(r => [...Array(st.c).fill(''), ...r])]; break; } }
+  if (!values) throw new Error('That file has no sheet with Incident ID, Description and Facility headers.');
+  const w = Math.max(...values.slice(0, 10).map(r => r.length)); return values.map(r => { const x = r.slice(0, w); while (x.length < w) x.push(''); return x; });
+}
+// ----- PL: update the work list from a newer portal export -----
+const UPD = 'Updated Report';
+async function plUpload(file){
+  busy(true, `Reading ${file.name}…`);
+  try { const values = await readExport(file); await applyUpdate(values, file.name); }
+  catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); }
+}
+async function applyUpdate(values, srcName){
+  busy(true, 'Comparing with your list…');
+  const hiN = findHeader(values, ['incident id', 'description', 'facility']);
+  const np = parse(values, UPD); if (np.missing.length) throw new Error(`The new report is missing these headers: ${np.missing.join(', ')}.`);
+  const newIds = new Set(np.rows.map(r => r.id).filter(Boolean)); const oldIds = new Set(S.rows.map(r => r.id).filter(Boolean));
+  if (!newIds.size) throw new Error('The new report has no incidents in it.');
+  // rows of incidents that left the portal are kept on the tab, marked Cleared from portal
+  const oldVals = S.sheetName ? await S.store.readSheet(S.sheetName) : [];
+  const hiO = findHeader(oldVals, ['incident id', 'description', 'facility']);
+  const Ho = hiO >= 0 ? oldVals[hiO].map(norm) : [], Hn = values[hiN].map(norm);
+  const map = Hn.map(h => h && !['status', 'notes'].includes(h) ? Ho.indexOf(h) : -1);
+  const gone = [...oldIds].filter(id => !newIds.has(id));
+  const append = hiO < 0 ? [] : S.rows.filter(r => gone.includes(r.id) && oldVals[r.r]).map(r => map.map(j => j >= 0 ? oldVals[r.r][j] ?? '' : ''));
+  const now = new Date().toISOString(), by = S.cfg.signoff || '';
+  const res = { cleared: 0, unworked: 0, back: 0, added: 0, kept: 0, notes: 0 };
+  const shown = new Set([...S.rows, ...np.rows].filter(inView).map(r => r.id)); // counts match what the Worklist shows
+  for (const id of gone){ const was = statusOf(id); if (was !== CLEARED && shown.has(id)){ res.cleared++; if (was === 'Needs review') res.unworked++; } S.notes[id] = Object.assign({ note: '' }, noteRec(id), { status: CLEARED, at: now, by }); }
+  for (const id of newIds){
+    const sh = shown.has(id);
+    if (!oldIds.has(id)){ if (sh) res.added++; continue; }
+    if (sh){ res.kept++; if (noteOf(id)) res.notes++; }
+    if (statusOf(id) === CLEARED){ if (sh) res.back++; S.notes[id] = Object.assign({}, noteRec(id), { status: noteOf(id) ? 'Reviewed' : 'Needs review', at: now, by }); }
+  }
+  await S.store.setDoc('irNotes', Object.assign({}, S.store.getDoc('irNotes') || {}, S.notes));
+  busy(true, `Writing the ${UPD} tab…`);
+  if ((S.sheets || []).includes(UPD) || S.sheetName === UPD) await S.store.removeSheets([UPD]);
+  delete S.sidx[UPD];
+  await S.store.writeSheet(UPD, [...values, ...append], { col: 0, dateCols: dateCols(values[hiN]) });
+  S.cfg.sheet = UPD; S.cfg.updAt = now; S.cfg.updFrom = srcName || ''; await saveCfg();
+  const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [UPD]); } catch (e){ console.error(e); } }
+  await reload(true);
+  openModal(`<h2 style="margin:0 0 8px;display:flex;gap:8px;align-items:center">Work list updated<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <div class="small muted" style="margin-bottom:8px">From ${esc(srcName || 'the new report')}. The tracker now reads the "${UPD}" tab.</div>
+    <table class="set"><tbody>
+      <tr><td>Cleared from portal (no longer on the report)</td><td style="text-align:right;font-weight:700">${res.cleared}</td></tr>
+      ${res.unworked ? `<tr><td class="muted">&nbsp;&nbsp;of those, never reviewed</td><td style="text-align:right">${res.unworked}</td></tr>` : ''}
+      <tr><td>Still open, status and notes kept</td><td style="text-align:right;font-weight:700">${res.kept}</td></tr>
+      ${res.notes ? `<tr><td class="muted">&nbsp;&nbsp;of those, with notes</td><td style="text-align:right">${res.notes}</td></tr>` : ''}
+      <tr><td>New on the report (Needs review)</td><td style="text-align:right;font-weight:700">${res.added}</td></tr>
+      ${res.back ? `<tr><td class="warnText">Back on the report after being cleared</td><td style="text-align:right;font-weight:700">${res.back}</td></tr>` : ''}
+    </tbody></table>
+    <div class="row" style="margin-top:12px">${res.cleared ? `<button class="btn" data-act="showCleared">See cleared items</button>` : ''}<span class="grow"></span><button class="btn primary" data-act="closeModal">Done</button></div>`);
+}
+async function demoUpdate(){
+  const v = await S.store.readSheet(S.sheetName); const hi = findHeader(v, ['incident id', 'description', 'facility']); const H = v[hi].map(norm); const ic = H.indexOf('incident id');
+  const body = v.slice(hi + 1).filter(r => r.some(x => x !== '' && x !== null) && statusOf(String(r[ic])) !== CLEARED);
+  const ids = [...new Set(body.map(r => String(r[ic])))]; const drop = new Set(ids.filter((_, i) => i % 6 === 2));
+  const keep = body.filter(r => !drop.has(String(r[ic]))).map(r => [...r]);
+  const extra = body.slice(0, 5).map((r, i) => { const x = [...r]; x[ic] = 199000 + i * 3; return x; });
+  const blankAB = r => H[0] === 'status' ? r.map((c, j) => j < 2 ? '' : c) : r; // a fresh export has no Status / Notes
+  const out = [...v.slice(0, hi), v[hi], ...keep, ...extra].map(blankAB);
+  await applyUpdate(out, 'sample updated report');
 }
 async function uploadPart(part, file){
   busy(true, `Reading ${file.name}…`);
