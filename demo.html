@@ -236,6 +236,21 @@ iframe.print{width:100%;height:65vh;border:1px solid var(--line);border-radius:1
 .seg{display:inline-flex;gap:2px;padding:3px;background:var(--surface2);border-radius:10px}
 .seg button{border:0;background:transparent;border-radius:8px;padding:5px 12px;font-weight:650;color:var(--muted);cursor:pointer;min-height:30px}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px var(--line)}
+/* collapsible groups (Collapse by MRN / Description) */
+tr.cgrp td{background:var(--surface2);padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--line)}
+tr.cgrp:hover td{background:var(--hover)}
+tr.cgrp:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cg{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cg-caret{color:var(--muted);font-size:11px;width:10px;transition:transform .12s}
+tr.cgrp.open .cg-caret{transform:rotate(90deg)}
+.cg-n{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--accent);color:var(--accent-ink);font-size:11.5px;font-weight:750;font-variant-numeric:tabular-nums}
+.cg-l{min-width:0}
+table.wl tr.sub td:first-child{box-shadow:inset 3px 0 0 var(--accent-soft)}
+/* selected clinic chips (removable) */
+.selchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.selchip{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:2px 4px 2px 10px;font-size:12.5px;font-weight:650}
+.selchip button{border:0;background:transparent;color:inherit;cursor:pointer;width:20px;height:20px;border-radius:50%;font-size:15px;line-height:1;display:grid;place-items:center}
+.selchip button:hover{background:var(--accent);color:var(--accent-ink)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media print{header.top,.noprint{display:none!important}}
 </style>
@@ -265,7 +280,7 @@ function applyTheme(){ const t = themePref(); if (t) document.documentElement.se
 const isDark = () => { const t = themePref(); return t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); };
 applyTheme();
 const startTab = () => { try { return localStorage.getItem('irStart') === 'rep' ? 'rep' : 'dash'; } catch { return 'dash'; } };
-const S = { wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
+const S = { ...wvLoad(), open: new Set(), wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
 
 // Columns are found by header name, so moving or inserting columns in the Filtered tab doesn't break anything.
 const COLS = {
@@ -368,7 +383,7 @@ function parse(values, sheet){
         sheetStatus: iSt >= 0 ? String(v[iSt] ?? '').trim() : '', sheetNote: iNo >= 0 ? String(v[iNo] ?? '').trim() : '',
       };
       o.code = codify(o.last, o.first); o.name = [o.last, o.first].filter(Boolean).join(', ');
-      o.age = o.dos ? days(today(), o.dos) : null; o.dueIn = o.due ? days(o.due, today()) : null;
+      o.age = o.dos ? days(today(), o.dos) : null; o.dueIn = o.due ? days(o.due, today()) : null; o.agecat = ageCat(o.age); o.agecatL = AGE_CATS[o.agecat];
       rows.push(o);
     }
   }
@@ -382,7 +397,18 @@ function cmp(a, b, k){
   if (k === 'mrn' && /^\d+$/.test(x) && /^\d+$/.test(y)) return Number(x) - Number(y);
   return String(x).localeCompare(String(y), undefined, { sensitivity: 'base', numeric: true });
 }
+// age category from days since DOS
+const AGE_CATS = ['0–30 days', '31–60 days', '61–90 days', '91+ days', 'No DOS'];
+const ageCat = a => a === null || a === undefined ? 4 : a <= 30 ? 0 : a <= 60 ? 1 : a <= 90 ? 2 : 3;
+// Worklist view: Sort preset and Collapse by, remembered on this computer
+const WSORTS = { dos: ['DOS (newest first)', [['dos', -1], ['mrn', 1]]], dosOld: ['DOS (oldest first)', [['dos', 1], ['mrn', 1]]], due: ['Due date', [['due', 1], ['dos', -1]]],
+  agecat: ['Age category (most aged first)', [['agecat', -1], ['dos', 1]]], desc: ['Description', [['desc', 1], ['dos', -1]]], mrn: ['MRN, then DOS', [['mrn', 1], ['dos', -1]]] };
+function wvLoad(){ try { const v = JSON.parse(localStorage.getItem('irWlView') || 'null') || {}; return { wsort: ['dos', 'dosOld', 'due', 'agecat', 'desc', 'mrn'].includes(v.wsort) ? v.wsort : '', collapse: ['mrn', 'desc'].includes(v.collapse) ? v.collapse : '' }; } catch { return { wsort: '', collapse: '' }; } }
+function wvSave(){ try { localStorage.setItem('irWlView', JSON.stringify({ wsort: S.wsort, collapse: S.collapse })); } catch {} }
+const wsortNow = () => S.wsort || (S.collapse ? 'dos' : '');
 function sorted(rows){
+  const ws = !S.sort && wsortNow();
+  if (ws){ const ks = WSORTS[ws][1]; return rows.slice().sort((a, b) => { for (const [k, d] of ks){ const x = a[k] ?? null, y = b[k] ?? null; if (x === null && y !== null) return 1; if (y === null && x !== null) return -1; const c = cmp(a, b, k) * d; if (c) return c; } for (const k of ORDER){ const c = cmp(a, b, k); if (c) return c; } return 0; }); }
   const keys = S.sort ? [S.sort.k, ...ORDER.filter(k => k !== S.sort.k)] : ORDER; const dir = S.sort ? S.sort.d : 1;
   return rows.slice().sort((a, b) => { for (let i = 0; i < keys.length; i++){ const c = cmp(a, b, keys[i]) * (i === 0 ? dir : 1); if (c) return c; } return 0; });
 }
@@ -419,9 +445,10 @@ function msHTML(k){
     </div>` : ''}</div>`;
 }
 function wlBar(){
-  if (S.loc) return `<div class="card noprint wlbar"><div class="row"><b>Clinics</b><span class="pill">${esc(S.loc)}</span><span class="small muted">set by the Location picker at the top.</span><button class="linkbtn" data-act="setLoc" data-f="">Pick several clinics instead</button></div></div>`;
-  const facs = msFacs(); const v = msGet('wl'); const nSel = v.mode === 'all' ? facs.length : facs.filter(([f]) => v.list.includes(f)).length;
-  return `<div class="card noprint wlbar"><div class="row"><b>Clinics</b>${msHTML('wl')}</div>
+  const chip = (f, act) => `<span class="selchip">${esc(f)}<button data-act="${act}" data-f="${act === 'setLoc' ? '' : esc(f)}" aria-label="Remove ${esc(f)}" title="Remove">×</button></span>`;
+  if (S.loc) return `<div class="card noprint wlbar"><div class="row"><b>Clinics</b>${chip(S.loc, 'setLoc')}<span class="small muted">from the Location picker at the top. Remove it to use your clinic selection.</span></div></div>`;
+  const facs = msFacs(); const v = msGet('wl'); const picked = v.mode === 'all' ? [] : facs.map(([f]) => f).filter(f => v.list.includes(f)); const nSel = v.mode === 'all' ? facs.length : picked.length;
+  return `<div class="card noprint wlbar"><div class="row"><b>Clinics</b>${msHTML('wl')}${picked.length ? `<div class="selchips">${picked.map(f => chip(f, 'msRemove')).join('')}${picked.length > 1 ? '<button class="linkbtn" data-act="msAll" data-k="wl">Clear (all clinics)</button>' : ''}</div>` : ''}</div>
     ${!nSel ? '<div class="small badText" style="margin-top:6px">No clinics selected. Pick at least one to see items.</div>' : ''}</div>`;
 }
 const viewRows = () => scope().filter(inView);
@@ -526,8 +553,10 @@ const DEMO_LAST = ['HARPER','NGUYEN','SILVA','KOWALSKI','BENNETT','MOREAU','TANA
 function demoIrRaw(rnd, t, serial){
   const pool = []; DEMO_DESC.forEach(([d, w]) => { for (let i = 0; i < w; i++) pool.push(d); });
   const v = [['', '', 'Incident ID','Last Name','First Name','Gender','DOB','Description','Prov Org','Facility','MRN','DOS','Provider','Last Activity','Due Date','Entry Date']];
+  const pats = Array.from({ length: 110 }, () => ({ last: DEMO_LAST[rnd(10)], first: DEMO_FIRST[rnd(8)], g: ['F','M'][rnd(2)], dob: serial(new Date(1955 + rnd(50), rnd(12), 1 + rnd(27))), fac: DEMO_FAC[rnd(DEMO_FAC.length)], mrn: String(140000 + rnd(9000)), prov: DEMO_PROV[rnd(6)] }));
   for (let i = 0; i < 320; i++){ const dos = new Date(t); dos.setDate(t.getDate() - 5 - rnd(50)); const due = new Date(t); due.setDate(t.getDate() - 10 + rnd(20)); const entry = new Date(dos); entry.setDate(dos.getDate() + 4);
-    v.push(['', '', i % 40 === 1 ? 190000 + (i - 1) * 7 : 190000 + i * 7, DEMO_LAST[rnd(10)], DEMO_FIRST[rnd(8)], ['F','M'][rnd(2)], serial(new Date(1955 + rnd(50), rnd(12), 1 + rnd(27))), pool[rnd(pool.length)], 'MHSCA', DEMO_FAC[rnd(DEMO_FAC.length)], String(140000 + rnd(9000)), serial(dos), DEMO_PROV[rnd(6)], '', serial(due), serial(entry)]); }
+    const pt = pats[rnd(pats.length)]; // patients recur across dates of service, as in a real export
+    v.push(['', '', i % 40 === 1 ? 190000 + (i - 1) * 7 : 190000 + i * 7, pt.last, pt.first, pt.g, pt.dob, pool[rnd(pool.length)], 'MHSCA', pt.fac, pt.mrn, serial(dos), pt.prov, '', serial(due), serial(entry)]); }
   return v;
 }
 function demoEr(rnd, t, serial){
@@ -722,18 +751,40 @@ function workHTML(){
   const inc = incidents(rows);
   const opts = (k, cur) => [...new Set(scope().filter(inView).map(r => r[k]))].sort(byName).map(v => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
   const th = (k, l) => { const on = S.sort && S.sort.k === k; return `<th><button data-act="sort" data-v="${k}" ${on ? `aria-sort="${S.sort.d > 0 ? 'ascending' : 'descending'}"` : ''}>${l}${on ? (S.sort.d > 0 ? ' ▲' : ' ▼') : ''}</button></th>`; };
-  const groupKey = S.sort ? S.sort.k : 'fac'; let last = null;
-  const body = inc.map(g => {
-    const r = g.first; let h = '';
-    if (['fac', 'prov', 'desc', 'status'].includes(groupKey) && r[groupKey] !== last){ last = r[groupKey]; const n = inc.filter(x => x.first[groupKey] === last).length; h = `<tr class="grp"><td colspan="10">${esc(last)} <span class="muted small">· ${n}</span></td></tr>`; }
-    const st = statusOf(g.id), note = noteOf(g.id), due = g.rows.reduce((m, x) => x.due && (!m || x.due < m) ? x.due : m, null);
-    return h + `<tr class="${g.rows.some(x => isCtrl(x.desc)) ? '' : 'nc'}" data-act="inc" data-id="${esc(g.id)}" style="cursor:pointer">
+  const rowHTML = (g, sub) => {
+    const r = g.first; const st = statusOf(g.id), note = noteOf(g.id), due = g.rows.reduce((m, x) => x.due && (!m || x.due < m) ? x.due : m, null);
+    return `<tr class="${g.rows.some(x => isCtrl(x.desc)) ? '' : 'nc'}${sub ? ' sub' : ''}" data-act="inc" data-id="${esc(g.id)}" style="cursor:pointer">
       <td data-l="Status" onclick="event.stopPropagation()"><select class="fld" data-stat="${esc(g.id)}" aria-label="Status" style="min-height:30px;padding:3px 6px;width:auto">${STATUSES.map(x => `<option ${x === st ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
       <td data-l="Clinic">${esc(r.fac)}</td><td data-l="Provider">${esc(r.prov)}</td><td data-l="MRN">${esc(r.mrn)}</td><td data-l="Patient">${esc(S.cfg.codify ? r.code : r.name)}</td>
       <td data-l="Description">${g.rows.map(x => `<div>${esc(x.desc)}</div>`).join('')}${g.rows.length > 1 ? `<span class="pill" style="margin-top:2px">${g.rows.length} items</span>` : ''}</td>
-      <td data-l="DOS">${fmtD(r.dos)}</td><td data-l="Due" class="${due && days(due, today()) < 0 ? 'due-bad' : due && days(due, today()) <= 7 ? 'due-warn' : ''}">${fmtD(due)}</td>
+      <td data-l="DOS">${fmtD(r.dos)}${r.age !== null ? `<div class="small muted">${r.age}d · ${esc(r.agecatL)}</div>` : ''}</td><td data-l="Due" class="${due && days(due, today()) < 0 ? 'due-bad' : due && days(due, today()) <= 7 ? 'due-warn' : ''}">${fmtD(due)}</td>
       <td data-l="Notes" style="max-width:260px">${note ? `<span style="white-space:pre-wrap">${esc(note.length > 90 ? note.slice(0, 90) + '…' : note)}</span>` : '<span class="muted small">+ add note</span>'}</td><td data-l="Incident">${esc(g.id)}</td></tr>`;
-  }).join('');
+  };
+  let body;
+  if (S.collapse){
+    // one collapsible row per MRN or per description; groups follow the chosen sort (their first item), items inside keep it too
+    const units = S.collapse === 'desc' ? inc.flatMap(g => g.descs.map(d => { const rs = g.rows.filter(x => x.desc === d); return { id: g.id, rows: rs, first: rs[0], descs: [d] }; })) : inc;
+    const gk = u => S.collapse === 'mrn' ? (u.first.mrn || '(No MRN)') : u.first.desc;
+    const groups = new Map(); for (const u of units){ const k = gk(u); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(u); }
+    body = [...groups.entries()].map(([k, us]) => {
+      const items = us.reduce((n, u) => n + u.rows.length, 0); const open = S.open.has(S.collapse + ':' + k);
+      const all = us.flatMap(u => u.rows); const ds = all.map(x => x.dos).filter(Boolean).sort((a, b) => a - b);
+      const rem = us.filter(u => statusOf(u.id) === 'Needs review').length; const r = us[0].first;
+      const pastDue = all.some(x => x.dueIn !== null && x.dueIn < 0 && statusOf(x.id) === 'Needs review');
+      const label = S.collapse === 'mrn' ? `<b>MRN ${esc(k)}</b> <span class="muted">${esc(S.cfg.codify ? r.code : r.name)} · ${esc([...new Set(all.map(x => x.fac))].join(', '))}</span>` : `<b>${esc(k)}</b>`;
+      const meta = [ds.length ? (ds.length > 1 ? `DOS ${fmtD(ds[ds.length - 1])} → ${fmtD(ds[0])}` : `DOS ${fmtD(ds[0])}`) : '', S.collapse === 'mrn' ? [...new Set(all.map(x => x.desc))].length + ' description' + ([...new Set(all.map(x => x.desc))].length === 1 ? '' : 's') : `${[...new Set(all.map(x => x.mrn))].length} MRNs`, rem ? `${rem} to review` : 'all worked'].filter(Boolean).join(' · ');
+      return `<tr class="cgrp${open ? ' open' : ''}" data-act="grpToggle" data-g="${esc(S.collapse + ':' + k)}" tabindex="0" aria-expanded="${open}"><td colspan="10"><div class="cg"><span class="cg-caret" aria-hidden="true">▸</span><span class="cg-n" title="${items} item${items === 1 ? '' : 's'}">${items}</span><span class="cg-l">${label}</span>${pastDue ? '<span class="pill bad">past due</span>' : ''}<span class="grow"></span><span class="small muted">${meta}</span></div></td></tr>`
+        + (open ? us.map(u => rowHTML(u, true)).join('') : '');
+    }).join('');
+  } else {
+    const ws = !S.sort && wsortNow();
+    const groupKey = S.sort ? S.sort.k : ws ? ({ desc: 'desc', agecat: 'agecatL' }[ws] || '') : 'fac'; let last = null;
+    body = inc.map(g => {
+      const r = g.first; let h = '';
+      if (['fac', 'prov', 'desc', 'status', 'agecatL'].includes(groupKey) && r[groupKey] !== last){ last = r[groupKey]; const n = inc.filter(x => x.first[groupKey] === last).length; h = `<tr class="grp"><td colspan="10">${esc(last)} <span class="muted small">· ${n}</span></td></tr>`; }
+      return h + rowHTML(g);
+    }).join('');
+  }
   const f = S.f; const active = f.q || f.fac || f.prov || f.desc || f.due || f.st || f.fk; const p = progress(rows);
   const from = S.fromDash && active ? `<div class="fromdash noprint"><span>From the Clinic Dashboard: <b>${esc(S.fromDash)}</b></span><span class="grow"></span><button class="linkbtn" data-act="clearFilt">Show all items</button><button class="linkbtn" data-act="tab" data-v="dash">← Back to dashboard</button></div>` : '';
   return from + `<div class="card noprint"><div class="row">
@@ -741,8 +792,12 @@ function workHTML(){
       <select class="fld" style="width:auto;max-width:240px" data-filt="desc" aria-label="Description"><option value="">All descriptions</option>${opts('desc', f.desc)}</select>
       <select class="fld" style="width:auto" data-filt="st" aria-label="Status"><option value="">Any status</option>${STATUSES.map(x => `<option ${f.st === x ? 'selected' : ''}>${x}</option>`).join('')}</select>
       <select class="fld" style="width:auto" data-filt="due" aria-label="Due"><option value="">Any due date</option><option value="past" ${f.due === 'past' ? 'selected' : ''}>Past due</option><option value="soon" ${f.due === 'soon' ? 'selected' : ''}>Due in 7 days</option></select>
+    </div><div class="row viewbar" style="margin-top:8px">
+      <label class="small muted" for="wsortSel" style="font-weight:650">Sort</label><select class="fld" id="wsortSel" style="width:auto;min-height:32px;padding:4px 8px">${S.collapse ? '' : `<option value="" ${!S.wsort && !S.sort ? 'selected' : ''}>Clinic, provider, MRN (default)</option>`}${S.sort ? '<option value="" selected>Column header sort</option>' : ''}${Object.entries(WSORTS).map(([k, [l]]) => `<option value="${k}" ${!S.sort && wsortNow() === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <label class="small muted" for="collapseSel" style="font-weight:650;margin-left:6px">Collapse by</label><select class="fld" id="collapseSel" style="width:auto;min-height:32px;padding:4px 8px"><option value="">None</option><option value="mrn" ${S.collapse === 'mrn' ? 'selected' : ''}>MRN</option><option value="desc" ${S.collapse === 'desc' ? 'selected' : ''}>Description</option></select>
+      ${S.collapse ? '<button class="linkbtn" data-act="grpAll" data-v="1">Expand all</button><button class="linkbtn" data-act="grpAll" data-v="0">Collapse all</button>' : ''}
     </div><div class="row" style="margin-top:8px"><span class="small muted">${inc.length} incidents · ${rows.length} items · ${p.remaining} remaining · ${esc(wlLabel())}${f.fk ? ' · <b>focus items only</b>' : ''} · click a row to open it</span><span class="grow"></span>
-      ${S.sort ? '<button class="linkbtn" data-act="sortReset">Default sort</button>' : ''}${active ? '<button class="linkbtn" data-act="clearFilt">Clear filters</button>' : ''}<button class="btn sm" data-act="copyList">Copy list</button><button class="btn sm" data-act="progEmail">Progress recap</button></div></div>
+      ${S.sort || S.wsort ? '<button class="linkbtn" data-act="sortReset">Default sort</button>' : ''}${active ? '<button class="linkbtn" data-act="clearFilt">Clear filters</button>' : ''}<button class="btn sm" data-act="copyList">Copy list</button><button class="btn sm" data-act="progEmail">Progress recap</button></div></div>
     <div class="card" style="padding:0"><div class="tblwrap" style="max-height:72vh"><table class="wl"><thead><tr>${th('status', 'Status')}${th('fac', 'Clinic')}${th('prov', 'Provider')}${th('mrn', 'MRN')}${th('name', 'Patient')}${th('desc', 'Description')}${th('dos', 'DOS')}${th('due', 'Due')}<th>Notes</th>${th('id', 'Incident')}</tr></thead>
       <tbody>${body || '<tr><td colspan="10" class="empty">Nothing matches these filters.</td></tr>'}</tbody></table></div></div>`;
 }
@@ -1133,6 +1188,9 @@ document.addEventListener('click', async ev => {
     buildIR: () => buildIR(v),
     inc: () => editIncident(b.dataset.id),
     theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); render(); },
+    grpToggle: () => { const g = b.dataset.g; S.open.has(g) ? S.open.delete(g) : S.open.add(g); render(); const t = document.querySelector(`tr.cgrp[data-g="${CSS.escape(g)}"]`); if (t) t.focus({ preventScroll: true }); },
+    grpAll: () => { if (v === '1'){ const rows = filtered(); const keys = S.collapse === 'mrn' ? rows.map(r => r.mrn || '(No MRN)') : rows.map(r => r.desc); keys.forEach(k => S.open.add(S.collapse + ':' + k)); } else S.open.clear(); render(); },
+    msRemove: () => { const f = b.dataset.f; const facs = msFacs().map(([x]) => x); const cur = msGet('wl'); const list = (cur.mode === 'all' ? facs : cur.list).filter(x => x !== f); msSet('wl', { mode: 'some', list }); render(); },
     msOpen: () => { S.msOpen = S.msOpen === b.dataset.k ? null : b.dataset.k; render(); },
     msClose: () => { S.msOpen = null; render(); },
     msAll: () => { msSet(b.dataset.k, { mode: 'all' }); render(); },
@@ -1171,8 +1229,8 @@ document.addEventListener('click', async ev => {
     setLoc: () => setLoc(b.dataset.f || ''),
     drill: () => { S.fromDash = b.dataset.desc ? b.dataset.desc : ''; S.f = { q: '', fac: b.dataset.fac || '', prov: b.dataset.prov || '', desc: b.dataset.desc || '', nc: false, due: '', st: '' }; S.tab = 'work'; render(); },
     dueFilter: () => { S.fromDash = b.dataset.from || ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: v, st: v === 'past' ? 'Needs review' : '' }; S.tab = 'work'; render(); },
-    sort: () => { S.sort = S.sort && S.sort.k === v ? (S.sort.d > 0 ? { k: v, d: -1 } : null) : { k: v, d: 1 }; render(); },
-    sortReset: () => { S.sort = null; render(); },
+    sort: () => { if (S.collapse && v === 'dos') { S.wsort = wsortNow() === 'dos' ? 'dosOld' : 'dos'; S.sort = null; wvSave(); render(); return; } S.sort = S.sort && S.sort.k === v ? (S.sort.d > 0 ? { k: v, d: -1 } : null) : { k: v, d: 1 }; render(); },
+    sortReset: () => { S.sort = null; S.wsort = ''; wvSave(); render(); },
     clearFilt: () => { S.fromDash = ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '' }; render(); },
     toggleNC: () => { S.f.nc = b.checked; render(); },
     copyList: async () => { const rs = sorted(filtered()); const cols = [['Status', r => statusOf(r.id)], ['Notes', r => noteOf(r.id)], ['Clinic', r => r.fac], ['Provider', r => r.prov], ['MRN', r => r.mrn], ['Description', r => r.desc], ['Patient', pt], ['DOS', r => fmtD(r.dos)], ['Due', r => fmtD(r.due)], ['Incident ID', r => r.id]];
@@ -1206,7 +1264,7 @@ document.addEventListener('click', async ev => {
   };
   if (A[a]) await A[a]();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.msOpen){ const k = S.msOpen; S.msOpen = null; render(); const t = document.querySelector(`.ms[data-ms="${k}"] .ms-btn`); if (t) t.focus(); return; } if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if (e.key === 'Enter' && e.target.matches && e.target.matches('.srow[data-act="inc"]')) e.target.click(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.msOpen){ const k = S.msOpen; S.msOpen = null; render(); const t = document.querySelector(`.ms[data-ms="${k}"] .ms-btn`); if (t) t.focus(); return; } if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.srow[data-act="inc"], tr.cgrp')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('input', e => {
   if (e.target.id === 'rptNote' && S._rptMake){ S._rptMake(); return; }
   if (e.target.id === 'rnNew' || e.target.id === 'rnEx'){ renameCheck(); return; }
@@ -1221,6 +1279,8 @@ document.addEventListener('change', async e => {
   if (t.dataset.fk !== undefined){ const a = focusKw().map(x => Object.assign({}, x)); a[+t.dataset.fk][t.dataset.k] = t.value.trim(); S.cfg.focusKw = a; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.erkeep !== undefined){ const k = new Set(erKeep()); t.checked ? k.add(t.dataset.erkeep) : k.delete(t.dataset.erkeep); S.cfg.erKeep = [...k]; S.erCache = null; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.filt){ S.f[t.dataset.filt] = t.value; render(); return; }
+  if (t.id === 'wsortSel'){ S.wsort = t.value; S.sort = null; wvSave(); render(); return; }
+  if (t.id === 'collapseSel'){ S.collapse = t.value; S.sort = null; S.open.clear(); wvSave(); render(); return; }
   if (t.dataset.ctrl !== undefined){ if (t.checked) delete S.cfg.ctrl[t.dataset.ctrl]; else S.cfg.ctrl[t.dataset.ctrl] = false; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.route !== undefined){ S.cfg.route[t.dataset.route] = t.value; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.cfg){ S.cfg[t.dataset.cfg] = t.value.trim(); await saveCfg(); toast('ok', 'Saved.'); return; }
