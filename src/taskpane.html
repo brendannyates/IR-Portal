@@ -1257,26 +1257,40 @@ function chg(now, before){
   if (!d) return { h: '<span style="color:#6f665c">–</span>', t: '0' };
   return d > 0 ? { h: `<span style="color:#b3261e;font-weight:700">▲ ${d}</span>`, t: '▲' + d } : { h: `<span style="color:#2f7a45;font-weight:700">▼ ${-d}</span>`, t: '▼' + (-d) };
 }
-function pivotTables(cur, base, valueLabel){
+// compact email tables: totals by description, then one row per clinic with the main categories as columns
+const shortCat = c => { const t = String(c).replace(/^ER\/HIM\/NB\//i, '').replace(/\s*\/\s*/g, ' / ').trim(); return t.length > 38 ? t.slice(0, 36) + '…' : t; };
+function pivotTables(cur, base){
   const cmp = !!base; const g = (m, k) => (m && m.get(k)) || 0;
-  const head = cmp ? `<th style="${PV.th}">Row Labels</th><th style="${PV.thn}">AM</th><th style="${PV.thn}">EOD</th><th style="${PV.thn}">vs AM</th>` : `<th style="${PV.th}">Row Labels</th><th style="${PV.thn}">${esc(valueLabel)}</th>`;
-  const line = (label, now, before, st, stn, indent) => { const lab = `<td style="${st}${indent ? ';padding-left:24px' : ''}">${esc(label)}</td>`; return cmp ? `<tr>${lab}<td style="${stn}">${before}</td><td style="${stn}">${now}</td><td style="${stn}">${chg(now, before).h}</td></tr>` : `<tr>${lab}<td style="${stn}">${now}</td></tr>`; };
-  const tline = (label, now, before) => cmp ? `${label}\t${before}\t${now}\t${chg(now, before).t}` : `${label}\t${now}`;
-  // table 1: by description
-  const descs = [...new Set([...cur.byDesc.keys(), ...(cmp ? base.byDesc.keys() : [])])].sort(byName);
-  let h1 = `<table style="${PV.tbl}"><tr>${head}</tr>`; let t1 = (cmp ? 'Row Labels\tAM\tEOD\tvs AM' : 'Row Labels\t' + valueLabel) + '\n';
-  for (const d of descs){ h1 += line(d, g(cur.byDesc, d), cmp ? g(base.byDesc, d) : 0, PV.td, PV.tdn); t1 += tline(d, g(cur.byDesc, d), cmp ? g(base.byDesc, d) : 0) + '\n'; }
-  h1 += line('Grand Total', cur.total, cmp ? base.total : 0, PV.tot, PV.totn) + '</table>'; t1 += tline('Grand Total', cur.total, cmp ? base.total : 0);
-  // table 2: by location, then description
+  const F = 'font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:12px;color:#222';
+  const TB = `border-collapse:collapse;${F};margin:6px 0 14px`;
+  const H = 'background:#DDEBF7;font-weight:700;padding:3px 8px;border-bottom:1px solid #9BC2E6;white-space:nowrap', HR = H + ';text-align:right';
+  const D = 'padding:2px 8px;border-bottom:1px solid #eef2f7;white-space:nowrap', DR = D + ';text-align:right';
+  const T = 'padding:3px 8px;font-weight:700;background:#DDEBF7;border-top:1px solid #9BC2E6;white-space:nowrap', TR = T + ';text-align:right';
+  const delta = (now, before, small) => { const d = now - before; if (!d) return small ? '' : '<span style="color:#888">–</span>'; const c = d > 0 ? '#b3261e' : '#2f7a45'; return small ? ` <span style="color:${c};font-size:11px">(${d > 0 ? '▲' : '▼'}${Math.abs(d)})</span>` : `<span style="color:${c};font-weight:700">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}</span>`; };
+  const dt = (now, before) => { const d = now - before; return d ? (d > 0 ? '▲' : '▼') + Math.abs(d) : '–'; };
+  // 1) by description
+  const descs = [...new Set([...cur.byDesc.keys(), ...(cmp ? base.byDesc.keys() : [])])].sort((a, b) => g(cur.byDesc, b) - g(cur.byDesc, a) || byName(a, b));
+  let h1 = `<table style="${TB}"><tr><th style="${H};text-align:left">Description</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">vs AM</th>` : `<th style="${HR}">Items</th>`}</tr>`;
+  let t1 = cmp ? 'Description\tAM\tEOD\tvs AM\n' : 'Description\tItems\n';
+  for (const d of descs){ const n = g(cur.byDesc, d), b = cmp ? g(base.byDesc, d) : 0; h1 += `<tr><td style="${D}">${esc(shortCat(d))}</td>${cmp ? `<td style="${DR}">${b}</td><td style="${DR}">${n}</td><td style="${DR}">${delta(n, b)}</td>` : `<td style="${DR}">${n}</td>`}</tr>`; t1 += `${shortCat(d)}\t${cmp ? b + '\t' + n + '\t' + dt(n, b) : n}\n`; }
+  h1 += `<tr><td style="${T}">Total</td>${cmp ? `<td style="${TR}">${base.total}</td><td style="${TR}">${cur.total}</td><td style="${TR}">${delta(cur.total, base.total)}</td>` : `<td style="${TR}">${cur.total}</td>`}</tr></table>`;
+  t1 += `Total\t${cmp ? base.total + '\t' + cur.total + '\t' + dt(cur.total, base.total) : cur.total}`;
+  // 2) one row per clinic: the three biggest categories as columns, everything else in Other
+  const top = descs.slice(0, 3); const other = (m) => m ? [...m.entries()].filter(([k]) => !top.includes(k)).reduce((a, [, v]) => a + v, 0) : 0;
   const tot = (c, l) => c && c.byLoc.get(l) ? [...c.byLoc.get(l).values()].reduce((a, b) => a + b, 0) : 0;
   const locs = [...new Set([...cur.byLoc.keys(), ...(cmp ? base.byLoc.keys() : [])])].sort((a, b) => tot(cur, b) - tot(cur, a) || tot(base, b) - tot(base, a) || byName(a, b));
-  let h2 = `<table style="${PV.tbl}"><tr>${head}</tr>`; let t2 = (cmp ? 'Row Labels\tAM\tEOD\tvs AM' : 'Row Labels\t' + valueLabel) + '\n';
+  let h2 = `<table style="${TB}"><tr><th style="${H};text-align:left">Clinic</th>${top.map(d => `<th style="${HR}">${esc(shortCat(d))}</th>`).join('')}<th style="${HR}">Other</th>${cmp ? `<th style="${HR}">AM</th><th style="${HR}">EOD</th><th style="${HR}">vs AM</th>` : `<th style="${HR}">Total</th>`}</tr>`;
+  let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? 'AM\tEOD\tvs AM' : 'Total'}\n`;
   for (const l of locs){
-    h2 += line(l, tot(cur, l), cmp ? tot(base, l) : 0, PV.grp, PV.grpn); t2 += tline(l, tot(cur, l), cmp ? tot(base, l) : 0) + '\n';
-    const ds = [...new Set([...(cur.byLoc.get(l)?.keys() || []), ...(cmp ? base.byLoc.get(l)?.keys() || [] : [])])].sort(byName);
-    for (const d of ds){ const n = g(cur.byLoc.get(l), d), b = cmp ? g(base.byLoc.get(l), d) : 0; h2 += line(d, n, b, PV.td, PV.tdn, true); t2 += tline('  ' + d, n, b) + '\n'; }
+    const cm = cur.byLoc.get(l), bm = cmp ? base.byLoc.get(l) : null;
+    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return `<td style="${DR}">${n || (cmp && b ? 0 : '<span style="color:#bbb">·</span>')}${cmp ? delta(n, b, true) : ''}</td>`; }).join('');
+    const on = other(cm), ob = other(bm);
+    h2 += `<tr><td style="${D};font-weight:600">${esc(l)}</td>${cells}<td style="${DR}">${on || (cmp && ob ? 0 : '<span style="color:#bbb">·</span>')}${cmp ? delta(on, ob, true) : ''}</td>${cmp ? `<td style="${DR}">${tot(base, l)}</td><td style="${DR};font-weight:700">${tot(cur, l)}</td><td style="${DR}">${delta(tot(cur, l), tot(base, l))}</td>` : `<td style="${DR};font-weight:700">${tot(cur, l)}</td>`}</tr>`;
+    t2 += `${l}\t${top.map(d => g(cm, d)).join('\t')}\t${on}\t${cmp ? tot(base, l) + '\t' + tot(cur, l) + '\t' + dt(tot(cur, l), tot(base, l)) : tot(cur, l)}\n`;
   }
-  h2 += line('Grand Total', cur.total, cmp ? base.total : 0, PV.tot, PV.totn) + '</table>'; t2 += tline('Grand Total', cur.total, cmp ? base.total : 0);
+  const cTop = top.map(d => g(cur.byDesc, d)), cOther = cur.total - cTop.reduce((a, b) => a + b, 0);
+  h2 += `<tr><td style="${T}">Total</td>${cTop.map(n => `<td style="${TR}">${n}</td>`).join('')}<td style="${TR}">${cOther}</td>${cmp ? `<td style="${TR}">${base.total}</td><td style="${TR}">${cur.total}</td><td style="${TR}">${delta(cur.total, base.total)}</td>` : `<td style="${TR}">${cur.total}</td>`}</tr></table>`;
+  t2 += `Total\t${cTop.join('\t')}\t${cOther}\t${cmp ? base.total + '\t' + cur.total + '\t' + dt(cur.total, base.total) : cur.total}`;
   return { html: h1 + h2, text: t1 + '\n\n' + t2 };
 }
 const subjDate = d => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
@@ -1286,7 +1300,7 @@ async function showIrEmail(part){
     const cur = irCounts((await irData(part)).rows);
     const base = part === 'EOD' && S.rep.ir.AM ? irCounts((await irData('AM')).rows) : null;
     busy(false);
-    const t = pivotTables(cur, base, 'Count of Prov Org');
+    const t = pivotTables(cur, base);
     const sum = base ? `<p style="margin:0 0 6px">${cur.total} controllable items open at end of day, ${cur.total === base.total ? 'unchanged from' : cur.total < base.total ? (base.total - cur.total) + ' fewer than' : (cur.total - base.total) + ' more than'} this morning (${base.total}).</p>` : '';
     const sumT = base ? `${cur.total} controllable items open at end of day vs ${base.total} this morning.\n\n` : '';
     rptEmail({ who: P.line.replace(':', ''), subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`, body: n => wrap(`<p style="margin:0 0 6px">${esc(P.line)}</p>${n ? `<p style="margin:0 0 8px">${esc(n).replace(/\n/g, '<br>')}</p>` : ''}${sum}${t.html}`), text: n => `${P.line}\n\n${n ? n + '\n\n' : ''}${sumT}${t.text}` });
