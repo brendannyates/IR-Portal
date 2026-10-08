@@ -22,4 +22,6 @@ for sz in (16,32,64,80,128):
     d.line([(S*0.36,S*0.5),(S*0.56,S*0.5)],fill=W,width=lw)
     d.line([(S*0.36,S*0.68),(S*0.44,S*0.62),(S*0.5,S*0.7),(S*0.58,S*0.62),(S*0.64,S*0.68)],fill=W,width=lw)  # signature squiggle
     im.resize((sz,sz),Image.LANCZOS).save(f'dist/assets/icon-{sz}.png')
+import shutil
+for f in ('logo.png','logo-dark.png'): shutil.copy(f'src/assets/{f}', f'dist/assets/{f}')
 print('built')

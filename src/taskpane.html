@@ -31,6 +31,13 @@ header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg
 .bar{display:flex;align-items:center;gap:6px;padding:10px 12px 6px}
 .bar.wrap{flex-wrap:wrap;row-gap:6px}
 .brand{font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.logo{height:28px;width:auto;display:block;flex:none}
+.logo-dark{display:none}
+:root[data-theme="dark"] .logo-light{display:none}
+:root[data-theme="dark"] .logo-dark{display:block}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logo-light{display:none}:root:not([data-theme="light"]) .logo-dark{display:block}}
+.brand .appname{padding-left:10px;border-left:1px solid var(--line2);white-space:nowrap}
+@media(max-width:360px){.brand .appname{display:none}}
 .brand .dot{width:24px;height:24px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:10px;font-weight:800;letter-spacing:.3px;flex:none}
 .brand small{font-weight:500;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{border:1px solid transparent;background:transparent;border-radius:var(--r-sm);min-width:34px;height:34px;display:grid;place-items:center;cursor:pointer;padding:0 8px;color:var(--muted)}
@@ -273,15 +280,17 @@ function wlDefault(){ try { const v = JSON.parse(localStorage.getItem('irWlDefau
 function wlLoadSafe(){ try { const v = JSON.parse(localStorage.getItem('irWlClinics') || 'null'); return wlValid(v) ? v : wlDefault(); } catch { return { mode: 'all' }; } }
 const ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
 const ICON_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const ICON_POP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
 const ICON_GEAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
 const ICON_REFRESH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/></svg>';
 // light / dark: follows the computer until someone picks one; remembered on this computer
-function themePref(){ try { return localStorage.getItem('irTheme') || ''; } catch { return ''; } }
+let ROLE_IN = null, THEME_IN = null; // handed over to a separate window
+function themePref(){ try { return localStorage.getItem('irTheme') || THEME_IN || ''; } catch { return THEME_IN || ''; } }
 function applyTheme(){ const t = themePref(); if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); }
 const isDark = () => { const t = themePref(); return t ? t === 'dark' : !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches); };
 applyTheme();
 // Clinic view (default) or Admin view, chosen per computer in Settings. A convenience, not a permission.
-const isAdmin = () => { try { return localStorage.getItem('irRole') === 'admin'; } catch { return false; } };
+const isAdmin = () => { try { const r = localStorage.getItem('irRole'); return (r ?? ROLE_IN) === 'admin'; } catch { return ROLE_IN === 'admin'; } };
 const startTab = () => { try { return isAdmin() && localStorage.getItem('irStart') === 'rep' ? 'rep' : 'dash'; } catch { return 'dash'; } };
 const S = { ...wvLoad(), open: new Set(), wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
 
@@ -642,11 +651,11 @@ function header(){
   const tabs = [['dash', 'Clinic Dashboard', ''], ...(isAdmin() ? [['rep', 'Reports', '']] : []), ['work', 'Worklist', wb ? `<span class="badge">${wb}</span>` : '']];
   S._wbadges = { sig: sigOpen, clinic: clinOpen };
   return `<header class="top">${S.store.demo ? '<div class="demo-ribbon">Demo data: made-up patients and providers. Nothing here touches a workbook.</div>' : ''}
-    <div class="bar"><div class="brand"><span class="dot">IR</span>IR Portal Tracker <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small></div>
+    <div class="bar"><div class="brand"><img class="logo logo-light" src="assets/logo.png" alt="Mindful Health Solutions" width="85" height="28"><img class="logo logo-dark" src="assets/logo-dark.png" alt="Mindful Health Solutions" width="85" height="28"><span class="appname">IR Portal Tracker</span> <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small></div>
       <button class="iconbtn" data-act="theme" title="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}">${isDark() ? ICON_SUN : ICON_MOON}</button>
       <button class="iconbtn" data-act="refresh" title="Re-read the workbook" aria-label="Refresh">${ICON_REFRESH}</button>
       <button class="iconbtn" data-act="tab" data-v="set" title="Settings" aria-label="Settings" aria-pressed="${S.tab === 'set'}">${ICON_GEAR}</button>
-      ${S.canFull && S.mode === 'pane' ? '<button class="iconbtn" data-act="full" title="Open full screen" aria-label="Full screen">⤢</button>' : ''}
+      ${S.canFull && S.mode === 'pane' ? `<button class="iconbtn" data-act="full" title="Open in a new window" aria-label="Open in a new window">${ICON_POP}</button>` : ''}
       ${S.mode === 'dialog' ? '<button class="iconbtn" data-act="closeFull" title="Back to Excel">✕ Close</button>' : ''}</div>
     <div class="bar wrap" style="padding-top:0"><label for="locSel" class="small muted" style="font-weight:700">Location</label>
       <select class="fld" id="locSel" style="width:auto;min-width:200px;max-width:100%;min-height:34px;padding:4px 10px;font-weight:700">
@@ -1738,6 +1747,19 @@ const MANIFEST = `__MANIFEST__`;
 const CH = 12000;
 function sendChunks(fn, obj){ const s = JSON.stringify(obj); const id = Math.random().toString(36).slice(2); const n = Math.max(1, Math.ceil(s.length / CH)); for (let i = 0; i < n; i++) fn(JSON.stringify({ c: id, i, n, d: s.slice(i * CH, (i + 1) * CH) })); }
 function makeRx(handler){ const buf = {}; return str => { let m; try { m = JSON.parse(str); } catch { return; } if (!m || !m.c) return; const b = buf[m.c] || (buf[m.c] = []); b[m.i] = m.d; if (b.filter(x => x != null).length === m.n){ delete buf[m.c]; try { handler(JSON.parse(b.join(''))); } catch (e){ console.error(e); } } }; }
+// per-computer preferences, handed to the separate window so it opens the same way
+const PREF_KEYS = ['irRole', 'irTheme', 'irWlClinics', 'irWlDefault', 'irWlView', 'irAll', 'irLoc', 'irStart'];
+function prefSnap(){ const o = {}; try { for (const k of PREF_KEYS){ const v = localStorage.getItem(k); if (v !== null) o[k] = v; } } catch {} return o; }
+function prefApply(o){
+  try { for (const [k, v] of Object.entries(o)) localStorage.setItem(k, v); } catch {}
+  const g = k => o[k] ?? null;
+  if (g('irWlClinics') || g('irWlDefault')) S.wl = (() => { try { const v = JSON.parse(g('irWlClinics') || 'null'); if (wlValid(v)) return v; const d = JSON.parse(g('irWlDefault') || 'null'); return wlValid(d) ? d : { mode: 'all' }; } catch { return { mode: 'all' }; } })();
+  if (g('irWlView')) Object.assign(S, (() => { try { const v = JSON.parse(g('irWlView')); return { wsort: v.wsort || '', collapse: v.collapse || '' }; } catch { return {}; } })());
+  if (g('irAll') !== null) S.allTypes = g('irAll') === '1';
+  if (g('irLoc') !== null) S.loc = g('irLoc');
+  ROLE_IN = g('irRole'); THEME_IN = g('irTheme'); applyTheme();
+  if (!isAdmin() && ['rep', 'clinic'].includes(S.tab)) S.tab = 'dash'; else if (S.tab === 'dash' && isAdmin() && g('irStart') === 'rep') S.tab = 'rep';
+}
 function RemoteStore(){
   const pend = new Map(); let docs = {}; let onChanged = null;
   const rx = makeRx(m => { if (m.rid && pend.has(m.rid)){ const p = pend.get(m.rid); pend.delete(m.rid); m.ok ? p.res(m.res) : p.rej(new Error(m.err)); } else if (m.ev === 'changed' && onChanged) onChanged(); });
@@ -1747,7 +1769,7 @@ function RemoteStore(){
   S.closeFull = () => up({ ev: 'close' });
   return {
     live: true, remote: true,
-    async load(){ const d = await call('load'); docs = d.docs || {}; return d; },
+    async load(){ const d = await call('load'); docs = d.docs || {}; if (d.prefs && !S._prefsIn){ S._prefsIn = true; prefApply(d.prefs); } return d; },
     getDoc: k => docs[k] ?? null,
     async setDoc(k, v){ docs[k] = v; await call('setDoc', [k, v]); },
     sheetsInfo: () => call('sheetsInfo', []), readSheet: n => call('readSheet', [n]), removeSheets: ns => call('removeSheets', [ns]),
@@ -1759,8 +1781,8 @@ let DLG = null;
 function openFull(){
   if (DLG) return;
   const url = location.href.replace(/[?#].*$/, '') + '?mode=dialog';
-  Office.context.ui.displayDialogAsync(url, { height: 96, width: 96, displayInIframe: true }, res => {
-    if (res.status !== Office.AsyncResultStatus.Succeeded){ toast('bad', 'Couldn\'t open full screen: ' + esc(res.error?.message || '')); return; }
+  Office.context.ui.displayDialogAsync(url, { height: 94, width: 94, displayInIframe: false }, res => { // its own window, like the billing add-in
+    if (res.status !== Office.AsyncResultStatus.Succeeded){ toast('bad', 'Couldn\'t open a new window: ' + esc(res.error?.message || '') + (res.error?.code === 12007 ? ' (one is already open)' : '')); return; }
     DLG = res.value;
     const reply = obj => { try { sendChunks(s => DLG && DLG.messageChild(s), obj); } catch (e){ console.error(e); } };
     const rx = makeRx(async m => {
@@ -1768,7 +1790,7 @@ function openFull(){
       const { rid, op, args } = m;
       try {
         let res;
-        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes') }; }
+        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes') }; res.prefs = prefSnap(); }
         else if (['setDoc', 'sheetsInfo', 'readSheet', 'removeSheets', 'writeSheet', 'writeCells', 'insertCols', 'refreshPivots', 'renameSheet', 'buildPivots', 'activate'].includes(op)) res = await S.store[op](...(args || []));
         else throw new Error('Unknown request');
         reply({ rid, ok: true, res: res ?? null });
