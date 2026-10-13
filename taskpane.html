@@ -337,7 +337,7 @@ const DEFAULTS = {
   clinics: {},     // facility -> { email, leader }
   ccAlways: '', ccClinic: '', supDefault: '', signoff: '',
   codify: true, rename: {},
-  rptTo: 'PracticeLeadersSummit@mymhs.com; PracticeLeadersCoastal@mymhs.com; mbaxter@mymhs.com', rptCc: 'bgonzalez@mymhs.com; kmcleod@mymhs.com', rptSubject: 'IR Portal',
+  rptTo: '', rptCc: '', rptSubject: 'IR Portal', // recipients are set in Settings (kept out of this public repo)
   erIntro: 'Auths! Please see the Filtered tabs on the attached document to see our outstanding non-interventional auth related items.', erKeep: null, irDecide: {},
   provIntro: 'The following encounters have been identified as pending signature in the billing portal. Could you please complete sign off on these this week?',
   clinicIntro: 'The following items in the billing portal need clinic follow-up. Could you please work through these this week?',
@@ -476,8 +476,8 @@ const byName = (a, b) => String(a).localeCompare(String(b), undefined, { sensiti
 function OfficeStore(){
   return {
     live: true,
-    async load(sheet){
-      const names = await Excel.run(async ctx => { const wss = ctx.workbook.worksheets; wss.load('items/name'); await ctx.sync(); return wss.items.map(w => w.name); });
+    async load(sheet, known){ // known: tab names scanSources just read, to skip a second round trip
+      const names = known || await Excel.run(async ctx => { const wss = ctx.workbook.worksheets; wss.load('items/name'); await ctx.sync(); return wss.items.map(w => w.name); });
       const pick = names.find(n => n === sheet) || names.find(n => norm(n) === norm(sheet));
       if (!pick) return { values: null, sheets: names, sheet };
       return { values: await this.readSheet(pick), sheets: names, sheet: pick };
@@ -506,6 +506,10 @@ function OfficeStore(){
       });
     },
     async writeCells(sheet, cells, checks){
+      S._selfWriteAt = Date.now(); // stamp before and after so watch() skips the change events from our own note writes
+      try { return await this._writeCells(sheet, cells, checks); } finally { S._selfWriteAt = Date.now(); }
+    },
+    async _writeCells(sheet, cells, checks){
       return Excel.run(async ctx => {
         const ws = ctx.workbook.worksheets.getItem(sheet);
         const ck = (checks || []).map(c => { const r = ws.getCell(c.r, c.c); r.load('values'); return [r, c.v]; }); await ctx.sync();
@@ -554,7 +558,7 @@ function OfficeStore(){
     async renameSheet(from, to){ return Excel.run(async ctx => { const t = ctx.workbook.worksheets.getItemOrNullObject(to); await ctx.sync(); if (!t.isNullObject){ t.delete(); await ctx.sync(); } ctx.workbook.worksheets.getItem(from).name = to; await ctx.sync(); }); },
     async activate(name){ return Excel.run(async ctx => { const w = ctx.workbook.worksheets.getItemOrNullObject(name); await ctx.sync(); if (!w.isNullObject){ w.activate(); await ctx.sync(); } }); },
     watch(cb){
-      Excel.run(async ctx => { ctx.workbook.worksheets.onChanged.add(() => { cb(); return Promise.resolve(); }); await ctx.sync(); }).catch(() => {});
+      Excel.run(async ctx => { ctx.workbook.worksheets.onChanged.add(() => { if (Date.now() - (S._selfWriteAt || 0) > 3000) cb(); return Promise.resolve(); }); await ctx.sync(); }).catch(() => {});
     },
   };
 }
@@ -624,10 +628,10 @@ async function reload(quiet){
   if (!quiet) busy(true);
   try {
     if (!S.cfg) loadCfg();
-    try { await scanSources(); } catch (e){ console.error(e); }
+    let fresh = null; try { fresh = (await scanSources()).sheets; } catch (e){ console.error(e); }
     const auto = !S.cfg.sheet || ['auto', 'filtered'].includes(norm(S.cfg.sheet));
     const latest = S.rep && (S.rep.ir.EOD || S.rep.ir.Noon || S.rep.ir.AM);
-    const d = await S.store.load(auto ? (latest ? latest.sheet : 'Filtered') : S.cfg.sheet);
+    const d = await S.store.load(auto ? (latest ? latest.sheet : 'Filtered') : S.cfg.sheet, fresh);
     if (S.store.remote) loadCfg(); // full-screen window: use the panel's saved settings
     S.notes = Object.assign({}, S.store.getDoc('irNotes') || {});
     S.sheets = d.sheets || [];
@@ -1534,6 +1538,7 @@ function rptEmail(o){
   const make = () => { const n = ($('#rptNote')?.value || '').trim(); CUR = { key: null, to, cc, subject: o.subject, html: o.body(n), text: o.text(n) + '\n', who: o.who }; const pv = $('#rptPrev'); if (pv) pv.innerHTML = CUR.html; };
   openModal(`<h2 style="margin:0 0 10px;display:flex;gap:8px;align-items:center">${esc(o.who)} email<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
     <div class="hdrs"><b>To</b><span>${esc(to.join('; ')) || '<span class="muted">Set in Settings</span>'}</span><b>Cc</b><span>${esc(cc.join('; ')) || '—'}</span><b>Subject</b><span>${esc(o.subject)} <span class="muted small">(reply on the day's thread)</span></span></div>
+    ${to.length ? '' : `<div class="msg warn" style="margin-top:8px">No recipients set yet. ${isAdmin() ? 'Add them' : 'An admin can add them'} in Settings, under Daily update emails. You can still copy the email.</div>`}
     <label class="lbl" for="rptNote">Note above the tables (optional)</label><textarea class="fld" id="rptNote" style="min-height:44px" placeholder="e.g. Awesome progress!"></textarea>
     <div class="emailprev" id="rptPrev" style="margin-top:10px"></div>
     <div class="row" style="margin-top:12px"><button class="btn primary" data-act="copyEmail">Copy email</button><button class="btn" data-act="copyAddr">Copy To / Cc</button><button class="btn" data-act="mailto" ${to.length ? '' : 'disabled'}>Open in Outlook</button></div>
@@ -1605,7 +1610,7 @@ async function showErEmail(){
 // ----- file upload (Noon / EOD) -----
 function loadXLSX(){
   if (window.XLSX) return Promise.resolve();
-  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload = res; s.onerror = () => rej(new Error('Couldn\'t load the file reader. Check the internet connection.')); document.head.appendChild(s); });
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'assets/xlsx.full.min.js'; /* SheetJS 0.20.3, self-hosted from cdn.sheetjs.com */ s.onload = res; s.onerror = () => rej(new Error('Couldn\'t load the file reader. Check the internet connection.')); document.head.appendChild(s); });
 }
 async function readExport(file){
   await loadXLSX();
@@ -1894,7 +1899,7 @@ function openFull(){
 (function boot(){
   const demo = /[?&]demo\b/.test(location.search);
   S.mode = /[?&]mode=dialog\b/.test(location.search) ? 'dialog' : demo ? 'demo' : 'pane';
-  const start = store => { S.store = store; reload(true).then(async () => { try { await scanSources(); if ((!S.rows.length || S.loadErr) && (S.rep.ir.AM || S.rep.er)) S.tab = 'rep'; render(); } catch (e){ console.error(e); } }).then(() => store.watch?.(() => { clearTimeout(S._w); S._w = setTimeout(() => { if (DLG && S.notifyDialog){ S.notifyDialog(); return; } if ($('#modal').hidden) reload(true); }, 1500); })); };
+  const start = store => { S.store = store; reload(true).then(async () => { try { if ((!S.rows.length || S.loadErr) && S.rep && (S.rep.ir.AM || S.rep.er)) S.tab = 'rep'; render(); } catch (e){ console.error(e); } }).then(() => store.watch?.(() => { clearTimeout(S._w); S._w = setTimeout(() => { if (DLG && S.notifyDialog){ S.notifyDialog(); return; } if ($('#modal').hidden) reload(true); }, 1500); })); };
   if (S.mode === 'dialog'){ if (typeof Office === 'undefined'){ $('#app').innerHTML = notInExcelHTML(); return; } Office.onReady(() => start(RemoteStore())); return; }
   if (demo){ start(DemoStore()); return; }
   if (typeof Office === 'undefined'){ $('#app').innerHTML = notInExcelHTML(); return; }
