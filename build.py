@@ -8,10 +8,8 @@ html = html.replace('`__MANIFEST__`', '`' + man.replace('\\','\\\\') + '`')
 open('dist/taskpane.html','w').write(html)
 open('dist/index.html','w').write('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=taskpane.html"><title>IR Portal Tracker</title><a href="taskpane.html">IR Portal Tracker</a>')
 open('dist/commands.html','w').write('<!doctype html><meta charset="utf-8"><title>IR Portal Tracker commands</title><script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script><script>Office.onReady(function(){});</script>')
-# demo page: same app without Office.js, opens straight into demo data
-demo = html.replace('<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>', '').replace("const demo = /[?&]demo\\b/.test(location.search);", "const demo = true;")
-assert 'const demo = true;' in demo
-open('dist/demo.html','w').write(demo)
+# demo page: redirect to the app's built-in demo mode
+open('dist/demo.html','w').write('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=taskpane.html?demo=1"><title>IR Portal Tracker demo</title><a href="taskpane.html?demo=1">IR Portal Tracker demo</a>')
 W=(255,253,248,255)
 for sz in (16,32,64,80,128):
     S=sz*4; im=Image.new('RGBA',(S,S),(0,0,0,0)); d=ImageDraw.Draw(im)
@@ -23,5 +21,5 @@ for sz in (16,32,64,80,128):
     d.line([(S*0.36,S*0.68),(S*0.44,S*0.62),(S*0.5,S*0.7),(S*0.58,S*0.62),(S*0.64,S*0.68)],fill=W,width=lw)  # signature squiggle
     im.resize((sz,sz),Image.LANCZOS).save(f'dist/assets/icon-{sz}.png')
 import shutil
-for f in ('logo.png','logo-dark.png'): shutil.copy(f'src/assets/{f}', f'dist/assets/{f}')
+for f in ('logo.png','logo-dark.png','xlsx.full.min.js'):shutil.copy(f'src/assets/{f}', f'dist/assets/{f}')
 print('built')
