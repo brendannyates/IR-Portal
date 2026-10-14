@@ -8,6 +8,11 @@ Excel add-in over the IR Portal workbook's **Filtered** tab (headers in row 1, d
 - **Clinic routing**: per-location emails and printable action lists (clinical documentation and ER/HIM/NB registration items).
 - **Settings**: what counts as controllable, where each description routes, contacts, message text. Saved inside the workbook.
 
+- **Reclassify**: open an item and change its Description. Each change (and each undo) adds a row to the **IR Reclassifications** tab; dashboard, worklist, Filtered tabs, pivots and emails use the new category.
+- **Carry-over**: every status, note and flag is also saved to the **IR Notes** tab. The EOD email downloads `IR Notes M.D.YY.xlsx` (items still on the report only); **Merge notes file** in the next day's workbook brings them forward by Incident ID, newest save winning, until an item drops off the report. A saved workbook works as the merge file too.
+
+Columns are found by header name (case, spacing and punctuation ignored), so column order doesn't matter.
+
 The add-in only reads the workbook. Patient data never leaves it; this site serves the app's code only.
 
 Demo with made-up data: `taskpane.html?demo=1` (`demo.html` redirects there). Install: open `taskpane.html` in a browser and click **Download manifest**, then upload it in Excel (Home → Add-ins → More Add-ins → My Add-ins → Upload My Add-in).
