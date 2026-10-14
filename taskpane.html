@@ -211,6 +211,7 @@ table.set input.fld,table.set select.fld{min-height:30px;padding:4px 8px}
 iframe.print{width:100%;height:65vh;border:1px solid var(--line);border-radius:10px;background:#fff}
 #toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:30;max-width:92vw}
 #toast .msg{box-shadow:0 6px 20px rgba(0,0,0,.15);border-color:var(--line)}
+#upd{position:sticky;top:0;z-index:60;margin:0;border-radius:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
 #busy{position:fixed;inset:0;display:grid;place-items:center;background:rgba(245,241,234,.65);backdrop-filter:blur(1px);z-index:25;font-weight:700}
 :root[data-theme="dark"] #busy{background:rgba(20,16,12,.65);color:var(--ink)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #busy{background:rgba(20,16,12,.65);color:var(--ink)}}
@@ -1466,6 +1467,7 @@ document.addEventListener('click', async ev => {
       try { n = await saveReclass(id, picks); } catch (e){ console.error(e); toast('bad', 'Couldn\'t save the reclassification: ' + esc(e.message || e)); }
       await saveIncident(id, note, st, { flag }); if (n) await reload(true); toast('ok', n ? `Saved. ${n === 1 ? 'Reclassification' : n + ' reclassifications'} added to the ${RC_TAB} tab.` : 'Saved.'); },
     dlNotes: () => downloadNotes(),
+    appReload: () => { if (!$('#modal').hidden){ toast('warn', 'Save or close the open window first, then reload.'); return; } const u = new URL(location.href); u.searchParams.set('_v', S._upd || Date.now()); location.replace(u.toString()); }, // new address, so the browser can't hand back the cached page
     eodEmail: () => showIrEmail('EOD'),
     progEmail: () => progressEmail(),
     workStatus: () => { S.fromDash = b.dataset.from || ''; S.f = { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: v }; S.tab = 'work'; render(); window.scrollTo(0, 0); },
@@ -2138,6 +2140,20 @@ function openFull(){
     S.notifyDialog = () => reply({ ev: 'changed' });
   });
 }
+
+// ---------- update notice: the build stamps APP_BUILD and version.json; an open panel compares them ----------
+const APP_BUILD = 'ba54269c45';
+function checkUpdate(){
+  if (APP_BUILD.startsWith('__') || S._upd || Date.now() - (S._updAt || 0) < 60000) return; // unbuilt source, already shown, or checked in the last minute
+  S._updAt = Date.now();
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => { if (j && j.build && j.build !== APP_BUILD){ S._upd = j.build; showUpdate(); } }).catch(() => {});
+}
+function showUpdate(){
+  let el = $('#upd'); if (!el){ el = document.createElement('div'); el.id = 'upd'; el.className = 'msg info noprint'; el.setAttribute('role', 'status'); document.body.prepend(el); }
+  el.innerHTML = '<span class="grow"><b>Update available.</b> Reload to get the latest IR Portal Tracker. Your notes are saved in the workbook.</span><button class="btn sm primary" data-act="appReload">Reload now</button>';
+}
+setTimeout(checkUpdate, 20000); setInterval(checkUpdate, 5 * 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); }); window.addEventListener('focus', checkUpdate);
 
 (function boot(){
   const demo = /[?&]demo\b/.test(location.search);

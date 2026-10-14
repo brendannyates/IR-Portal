@@ -1,11 +1,13 @@
-import os
+import os, hashlib, json
 from PIL import Image, ImageDraw
 os.makedirs('dist/assets', exist_ok=True)
-html = open('src/taskpane.html').read()
-man = open('src/manifest.xml').read()
+html = open('src/taskpane.html', newline='').read().replace('\r\n', '\n')
+man = open('src/manifest.xml', newline='').read().replace('\r\n', '\n')
 assert '`' not in man and '${' not in man
-html = html.replace('`__MANIFEST__`', '`' + man.replace('\\','\\\\') + '`')
-open('dist/taskpane.html','w').write(html)
+build = hashlib.sha256((html + man).encode()).hexdigest()[:10]  # same ID as build-root.js
+html = html.replace('`__MANIFEST__`', '`' + man.replace('\\','\\\\') + '`').replace("'__BUILD__'", "'" + build + "'")
+open('dist/taskpane.html','w', newline='\n').write(html)
+open('dist/version.json','w').write(json.dumps({'build': build}) + '\n')
 open('dist/index.html','w').write('<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=taskpane.html"><title>IR Portal Tracker</title><a href="taskpane.html">IR Portal Tracker</a>')
 open('dist/commands.html','w').write('<!doctype html><meta charset="utf-8"><title>IR Portal Tracker commands</title><script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script><script>Office.onReady(function(){});</script>')
 # demo page: redirect to the app's built-in demo mode
