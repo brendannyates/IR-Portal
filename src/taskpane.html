@@ -1121,15 +1121,14 @@ async function downloadNotes(){
     toast('ok', `Downloaded ${esc(name)}: ${ids.length} worked incident${ids.length === 1 ? '' : 's'}, ${rcs.length} reclassification${rcs.length === 1 ? '' : 's'}. Keep it with the IR files on OneDrive / SharePoint. If nothing downloaded, save this workbook instead: its ${NOTES_TAB} tab merges the same way.`);
   } catch (e){ console.error(e); toast('bad', 'Couldn\'t make the notes file: ' + esc(e.message || e)); }
 }
-async function mergeNotesFile(file){
-  busy(true, `Reading ${file.name}…`);
-  try {
+// live = the Incident IDs on the report being carried into (defaults to the Worklist's rows)
+async function mergeNotes(file, live){
     await loadXLSX();
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
     const notes = {}, rcs = {};
     for (const n of wb.SheetNames){ const v = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' }); readNotesInto(v, notes); readRcInto(v, rcs); }
-    if (!Object.keys(notes).length && !Object.keys(rcs).length) throw new Error('That file has no notes in it. Use the IR Notes file from the EOD email, or a worked IR workbook (Incident ID, Status and Notes columns).');
-    const live = new Set(S.rows.map(r => r.id).filter(Boolean)); const onReport = id => !live.size || live.has(id);
+    if (!Object.keys(notes).length && !Object.keys(rcs).length) throw new Error(`${file.name} has no notes in it. Use yesterday's worked IR workbook (Incident ID, Status and Notes columns) or the IR Notes file from the EOD email.`);
+    live = live || new Set(S.rows.map(r => r.id).filter(Boolean)); const onReport = id => !live.size || live.has(id);
     const res = { notes: 0, newerHere: 0, gone: 0, rc: 0 }; const ids = [], rcList = [];
     for (const [id, r] of Object.entries(notes)){
       if (!onReport(id)){ res.gone++; continue; }
@@ -1145,6 +1144,12 @@ async function mergeNotesFile(file){
     await S.store.setDoc('irReclass', Object.assign({}, S.store.getDoc('irReclass') || {}, S.reclass));
     try { await saveNotesTab(ids); if (rcList.length) await S.store.upsertRows(RC_TAB, RC_HDR, rcList.map(rcRow), -1); } catch (e){ console.error(e); }
     try { if (ids.length) await writeNotes(ids); if (rcList.length) await rcWriteFiltered(rcList); } catch (e){ console.error(e); }
+    return res;
+}
+async function mergeNotesFile(file){
+  busy(true, `Reading ${file.name}…`);
+  try {
+    const res = await mergeNotes(file);
     busy(false); await reload(true);
     openModal(`<h2 style="margin:0 0 8px;display:flex;gap:8px;align-items:center">Notes merged<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
       <div class="small muted" style="margin-bottom:8px">From ${esc(file.name)}. Matched by Incident ID; where both have a note, the most recent save wins.</div>
@@ -1440,6 +1445,8 @@ document.addEventListener('click', async ev => {
   const A = {
     tab: () => { if (v !== 'work') S.fromDash = ''; S.tab = v; render(); window.scrollTo(0, 0); if (v === 'rep') scanSources().then(render).catch(e => toast('bad', esc(e.message || e))); },
     buildIR: () => buildIR(v),
+    upGo: () => upNext(),
+    upSkipPrior: () => { if (S._up){ S._up.askedPrior = true; upRun(); } },
     inc: () => editIncident(b.dataset.id),
     theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); render(); },
     grpToggle: () => { const g = b.dataset.g; S.open.has(g) ? S.open.delete(g) : S.open.add(g); render(); const t = document.querySelector(`tr.cgrp[data-g="${CSS.escape(g)}"]`); if (t) t.focus({ preventScroll: true }); },
@@ -1544,7 +1551,9 @@ document.addEventListener('change', async e => {
     document.querySelectorAll('#sheet [data-rcbase]').forEach(s => { if (s !== t && s.dataset.rcbase === t.dataset.rcbase && t.value !== '__new') s.value = t.value; }); return; }
   if (t.dataset.mergenotes){ const f = t.files && t.files[0]; t.value = ''; if (f) mergeNotesFile(f); return; }
   if (t.dataset.plupload){ const f = t.files && t.files[0]; t.value = ''; if (f) plUpload(f); return; }
-  if (t.dataset.upload){ const f = t.files && t.files[0]; t.value = ''; if (f) uploadPart(t.dataset.upload, f); return; }
+  if (t.dataset.upload){ const f = t.files && t.files[0]; t.value = ''; if (f) startUpload(t.dataset.upload, f); return; }
+  if (t.dataset.amprior){ const f = t.files && t.files[0]; t.value = ''; if (f && S._up){ S._up.prior = f; S._up.askedPrior = true; upRun(); } return; }
+  if (t.id === 'upSel'){ S.upPick = t.value; render(); return; }
   if (t.dataset.fk !== undefined){ const a = focusKw().map(x => Object.assign({}, x)); a[+t.dataset.fk][t.dataset.k] = t.value.trim(); S.cfg.focusKw = a; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.erkeep !== undefined){ const k = new Set(erKeep()); t.checked ? k.add(t.dataset.erkeep) : k.delete(t.dataset.erkeep); S.cfg.erKeep = [...k]; S.erCache = null; await saveCfg(); toast('ok', 'Saved.'); return; }
   if (t.dataset.filt){ S.f[t.dataset.filt] = t.value; render(); return; }
@@ -1624,8 +1633,8 @@ async function scanSources(){
       const k = isMidName(s.name) ? 'Noon' : isEodName(s.name) ? 'EOD' : 'AM';
       if (k !== 'AM' || !R.ir.AM || /^(am raw data|main sheet)$/i.test(s.name)) R.ir[k] = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
     }
-    if (findHeader(s.top, ['incidentid', 'erstatus', 'note category']) >= 0 && !isF){
-      if (!R.er || s.rows > R.er.rows) R.er = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
+    if (findHeader(s.top, ERH) >= 0 && !isF){
+      if (!R.er || (R.er.sheet !== ER_RAW && (s.name === ER_RAW || s.rows > R.er.rows))) R.er = { sheet: s.name, rows: Math.max(0, s.rows - 1) };
     }
   }
   R.has = n => R.sheets.includes(n);
@@ -1795,7 +1804,7 @@ function rptEmail(o){
 const hIdx = (H, ...names) => hcol(H, names);
 async function readER(){
   const values = await S.store.readSheet(S.rep.er.sheet);
-  const hi = findHeader(values, ['incidentid', 'erstatus', 'note category']);
+  const hi = findHeader(values, ERH);
   let header = values[hi].map(x => String(x ?? '').trim()); let last = header.length - 1; while (last > 0 && !header[last]) last--; header = header.slice(0, last + 1);
   const H = header.map(norm);
   const ix = { fac: hIdx(H, 'facility'), st: hIdx(H, 'erstatus'), cat: hIdx(H, 'note category'), cpt: hIdx(H, 'cptcode', 'cpt code'), rt: hIdx(H, 'revenue type'), est: hIdx(H, 'estimated revenue'), dos: hIdx(H, 'dos') };
@@ -1857,12 +1866,13 @@ function loadXLSX(){
   if (window.XLSX) return Promise.resolve();
   return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'assets/xlsx.full.min.js'; /* SheetJS 0.20.3, self-hosted from cdn.sheetjs.com */ s.onload = res; s.onerror = () => rej(new Error('Couldn\'t load the file reader. Check the internet connection.')); document.head.appendChild(s); });
 }
-async function readExport(file){
+const ERH = ['incidentid', 'erstatus', 'note category'];
+async function readExport(file, names = IRH){
   await loadXLSX();
   const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
   let values = null;
-  for (const n of wb.SheetNames){ const ws = wb.Sheets[n]; const v = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true }); if (findHeader(v, IRH) >= 0){ const st = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s : { r: 0, c: 0 }; values = [...Array(st.r).fill(null).map(() => []), ...v.map(r => [...Array(st.c).fill(''), ...r])]; break; } }
-  if (!values) throw new Error('That file has no sheet with Incident ID, Description and Facility headers.');
+  for (const n of wb.SheetNames){ const ws = wb.Sheets[n]; const v = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true }); if (findHeader(v, names) >= 0){ const st = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s : { r: 0, c: 0 }; values = [...Array(st.r).fill(null).map(() => []), ...v.map(r => [...Array(st.c).fill(''), ...r])]; break; } }
+  if (!values) throw new Error(names === ERH ? 'That file has no sheet with IncidentID, ERStatus and Note Category headers. Is it the ER report?' : 'That file has no sheet with Incident ID, Description and Facility headers.');
   const w = Math.max(...values.slice(0, 10).map(r => r.length)); return values.map(r => { const x = r.slice(0, w); while (x.length < w) x.push(''); return x; });
 }
 // ----- PL: update the work list from a newer portal export -----
@@ -1925,24 +1935,83 @@ async function demoUpdate(){
   const out = [...v.slice(0, hi), v[hi], ...keep, ...extra].map(blankAB);
   await applyUpdate(out, 'sample updated report');
 }
-async function uploadPart(part, file){
+// ----- Upload a report: pick the day part / report, warn on an old file; AM brings in yesterday's notes first -----
+const UPLOADS = [...PARTS.map(P => ({ k: P.k, label: P.label + ' export' })), { k: 'ER', label: 'Weekly ER report' }];
+const ER_RAW = 'ER Raw Data';
+const dayOf = t => { const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+const dayLabel = d => d.toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' });
+const isToday = t => dayOf(t).getTime() === today().getTime();
+const upHave = k => !!(S.rep && (k === 'ER' ? S.rep.er : S.rep.ir[k]));
+const upPick = () => S.upPick || (UPLOADS.find(u => u.k !== 'ER' && !upHave(u.k)) || UPLOADS[2]).k; // next day part not added yet
+const OLD_FILE = 'A newer file likely exists, and notes may be lost by continuing to use the old file.';
+function startUpload(k, file){
+  S._up = { k, file };
+  if (isToday(file.lastModified)) return upNext();
+  const u = UPLOADS.find(x => x.k === k);
+  openModal(`<h2 style="margin:0 0 8px;display:flex;gap:8px;align-items:center">This file isn't from today<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <div class="msg warn">${esc(file.name)} is dated ${esc(dayLabel(dayOf(file.lastModified)))}. ${OLD_FILE}</div>
+    <div class="small muted" style="margin-top:8px">Download a fresh ${esc(u.label.toLowerCase())} and choose that instead, unless you meant to use this one.</div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="closeModal">Choose a different file</button><button class="btn" data-act="upGo">Use it anyway</button></div>`);
+}
+function upNext(){
+  const U = S._up; if (!U) return;
+  if (U.k !== 'AM' || U.askedPrior) return upRun();
+  openModal(`<h2 style="margin:0 0 8px;display:flex;gap:8px;align-items:center">Bring in yesterday's notes<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
+    <div class="small" style="margin-bottom:8px">Choose the most recent worked IR workbook from the day before. Its statuses, notes, flags and reclassifications carry into this AM export by Incident ID (newest save wins; items no longer on the report are dropped) before the AM tab and pivot are built.</div>
+    <div class="small muted" style="margin-bottom:10px">The IR Notes file from the EOD email works here too.</div>
+    <div class="row"><label class="btn primary" style="display:inline-flex;align-items:center">Choose yesterday's workbook…<input type="file" data-amprior="1" accept=".xlsx,.xls,.xlsm" hidden></label><button class="btn" data-act="upSkipPrior">Skip, nothing to carry over</button><button class="btn" data-act="closeModal">Cancel</button></div>`);
+}
+async function upRun(){
+  const U = S._up; S._up = null; if (!U) return;
+  if (!$('#modal').hidden) closeModal();
+  const ok = U.k === 'ER' ? await uploadER(U.file) : await uploadPart(U.k, U.file, U.prior);
+  if (!ok) return;
+  await S.store.setDoc('irUploads', Object.assign({}, S.store.getDoc('irUploads') || {}, { [U.k]: { name: U.file.name, fileDay: dayOf(U.file.lastModified).toISOString(), at: new Date().toISOString() } }));
+  S.upPick = null; render();
+}
+async function uploadPart(part, file, prior){
   busy(true, `Reading ${file.name}…`);
   try {
-    await loadXLSX();
-    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
-    let values = null;
-    for (const n of wb.SheetNames){ const ws = wb.Sheets[n]; const v = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', blankrows: true }); if (findHeader(v, IRH) >= 0){ const st = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).s : { r: 0, c: 0 }; values = [...Array(st.r).fill(null).map(() => []), ...v.map(r => [...Array(st.c).fill(''), ...r])]; break; } }
-    if (!values) throw new Error('That file has no sheet with Incident ID, Description and Facility headers.');
-    const w = Math.max(...values.slice(0, 10).map(r => r.length)); values = values.map(r => { const x = r.slice(0, w); while (x.length < w) x.push(''); return x; });
+    const values = await readExport(file);
+    const np = parse(values, partOf(part).raw); if (np.missing.length) throw new Error(`${file.name} is missing these headers: ${np.missing.join(', ')}.`);
     busy(true, `Adding the ${part} tab…`);
-    const rawName = partOf(part).raw; const old = S.rep && S.rep.ir[part] ? S.rep.ir[part].sheet : null;
-    await S.store.removeSheets([...new Set([rawName, old].filter(Boolean))]); delete S.sidx[rawName];
+    const rawName = partOf(part).raw; const old = part !== 'AM' && S.rep && S.rep.ir[part] ? S.rep.ir[part].sheet : null; // AM may be the workbook's own export tab: leave it, AM Raw Data takes over
+    await S.store.removeSheets([...new Set([rawName, old].filter(Boolean))].filter(n => S.rep.has(n))); delete S.sidx[rawName];
     await S.store.writeSheet(rawName, values, { col: 0, dateCols: dateCols(values[findHeader(values, IRH)]) });
     if (S.irCache) delete S.irCache[part];
+    let merged = null;
+    if (prior){ busy(true, `Carrying notes over from ${prior.name}…`); merged = await mergeNotes(prior, new Set(np.rows.map(r => r.id).filter(Boolean))); }
     const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [rawName]); } catch (e){ console.error(e); } }
     await scanSources(); busy(false);
     await buildIR(part);
-  } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); }
+    if (merged) toast('ok', `From ${esc(prior.name)}: ${merged.notes} status${merged.notes === 1 ? '' : 'es'} / notes and ${merged.rc} reclassification${merged.rc === 1 ? '' : 's'} carried into ${part}${merged.gone ? `; ${merged.gone} no longer on the report` : ''}${merged.newerHere ? `; kept ${merged.newerHere} newer note${merged.newerHere === 1 ? '' : 's'} already here` : ''}.`);
+    return true;
+  } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); return false; }
+}
+async function uploadER(file){
+  busy(true, `Reading ${file.name} (large file, a few seconds)…`);
+  try {
+    const values = await readExport(file, ERH);
+    busy(true, `Adding the ${ER_RAW} tab…`);
+    if (S.rep && S.rep.has(ER_RAW)) await S.store.removeSheets([ER_RAW]);
+    await S.store.writeSheet(ER_RAW, values, { col: 0, dateCols: dateCols(values[findHeader(values, ERH)]) });
+    S.erCache = null; await scanSources(); busy(false);
+    await buildER();
+    return true;
+  } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); return false; }
+}
+function uploadCard(R){
+  const k = upPick(), u = UPLOADS.find(x => x.k === k), have = upHave(k);
+  const rec = (S.store.getDoc('irUploads') || {})[k];
+  const src = have ? (k === 'ER' ? R.er : R.ir[k]) : null;
+  const old = have && rec && !isToday(rec.fileDay);
+  return `<div class="card"><h2>Upload a report<span class="sp"></span><span class="small muted">any time of day</span></h2>
+    <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+      <select class="fld" id="upSel" aria-label="Which report" style="width:auto;min-width:180px">${UPLOADS.map(x => `<option value="${x.k}" ${x.k === k ? 'selected' : ''}>${esc(x.label)}${upHave(x.k) ? ' (added)' : ''}</option>`).join('')}</select>
+      <label class="btn sm primary" style="display:inline-flex;align-items:center">${have ? 'Replace' : 'Upload'} ${esc(u.label.toLowerCase())}…<input type="file" data-upload="${k}" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>
+      ${k !== 'AM' && k !== 'ER' && R.ir.AM && S.store.demo ? `<button class="btn sm" data-act="demoPart" data-v="${k}">Use sample ${esc(k.toLowerCase())} data</button>` : ''}</div>
+    <div class="small muted" style="margin-top:6px">${have ? `Already added: ${esc(src.sheet)} tab, ${src.rows.toLocaleString()} rows${rec ? ` · from ${esc(rec.name)}, dated ${esc(dayLabel(dayOf(rec.fileDay)))}` : ''}. Replacing rewrites the tab and rebuilds.` : 'Not added yet.'}${k === 'AM' ? ' You\'ll be asked for yesterday\'s worked workbook so notes and reclassifications carry over first.' : ''}</div>
+    ${old ? `<div class="msg warn" style="margin-top:8px">This ${esc(u.label.toLowerCase())} is from ${esc(dayLabel(dayOf(rec.fileDay)))}, not today. ${OLD_FILE}</div>` : ''}</div>`;
 }
 
 // ----- view -----
@@ -1954,13 +2023,13 @@ function repHTML(){
   const partRow = P => {
     const src = R.ir[P.k]; const done = src && R.has(P.filtered);
     return `<div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="grow"><div class="name">${esc(P.label)}${P.k === 'EOD' ? ' <span class="small muted">· compared with AM</span>' : ''}</div>
-      <div class="small muted">${src ? `${esc(src.sheet)} · ${src.rows} rows${done ? ` · ${esc(P.filtered)} built ${when(P.k)}` : ''}` : P.k === 'AM' ? 'No IR Portal export tab found in this workbook.' : 'Not added yet.'}</div></div>
+      <div class="small muted">${src ? `${esc(src.sheet)} · ${src.rows} rows${done ? ` · ${esc(P.filtered)} built ${when(P.k)}` : ''}` : 'Not added yet. Upload it above.'}</div></div>
       ${src ? `<button class="btn sm primary" data-act="buildIR" data-v="${P.k}">${done ? 'Rebuild' : 'Build'} Filtered + pivot + email</button>${done ? `<button class="btn sm" data-act="irEmail" data-v="${P.k}">Email only</button>` : ''}` : ''}
-      ${P.k !== 'AM' && R.ir.AM ? `<label class="btn sm" style="display:inline-flex;align-items:center">${src ? 'Replace' : 'Upload'} ${esc(P.label.toLowerCase())} export…<input type="file" data-upload="${P.k}" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>` : ''}
-      ${P.k !== 'AM' && R.ir.AM && S.store.demo ? `<button class="btn sm" data-act="demoPart" data-v="${P.k}">Use sample ${esc(P.label.toLowerCase())} data</button>` : ''}</div>`;
+</div>`;
   };
   const dec = Object.entries(S.cfg.irDecide || {});
   return `<div class="row noprint" style="margin-bottom:8px"><span class="grow"></span>${startTab() === 'rep' ? '<span class="small muted">Reports opens first on this computer.</span> <button class="linkbtn" data-act="setStart" data-v="dash">Open Clinic Dashboard first instead</button>' : '<button class="btn sm" data-act="setStart" data-v="rep">Make Reports my default view</button>'}</div>
+    ${uploadCard(R)}
     <div class="card"><h2>Daily IR Portal update<span class="sp"></span><span class="small muted">one tab per day part</span></h2>
       ${PARTS.map(partRow).join('')}
       <div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px"><div class="grow"><div class="name">End of day: send and carry over</div>
@@ -1970,7 +2039,7 @@ function repHTML(){
     <div class="card"><h2>Weekly ER report</h2>
       ${R.er ? `<div class="srow" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="grow"><div class="name">${esc(R.er.sheet)} tab</div><div class="small muted">${R.er.rows.toLocaleString()} rows${R.has('Filtered Export') ? ' · Filtered Export built' : ''}</div></div>
         <button class="btn sm primary" data-act="buildER">${R.has('Filtered Export') ? 'Rebuild' : 'Build'} Filtered Export + summary + email</button>${R.has('Filtered Export') ? '<button class="btn sm" data-act="erEmail">Email only</button>' : ''}</div>
-        <div class="small muted" style="margin-top:8px">Keeps open "Auth Missing/Expired" items with revenue type ${erKeep().map(esc).join(', ')} (non-interventional). Revenue type comes from the first CPT code when the export doesn't have it.</div>` : '<div class="empty">No ER export tab in this workbook. Open the Monday ER report to use this.</div>'}</div>
+        <div class="small muted" style="margin-top:8px">Keeps open "Auth Missing/Expired" items with revenue type ${erKeep().map(esc).join(', ')} (non-interventional). Revenue type comes from the first CPT code when the export doesn't have it.</div>` : '<div class="empty">No ER export in this workbook yet. Upload the weekly ER report above.</div>'}</div>
     <div class="card"><h2>How items are classified</h2>
       <div class="small">Not controllable: every <b>ER/HIM/NB/Authorization…</b> item. Controllable, shortened to: ${IR_CATS.map(c => `<button class="pill" style="margin:2px;cursor:pointer" data-act="renameCat" data-c="${esc(dispCat(c))}" title="Rename">${esc(dispCat(c))} ✎</button>`).join('')}</div>
       ${Object.keys(S.cfg.rename || {}).length ? `<h3>Renamed</h3><table class="set"><tbody>${Object.entries(S.cfg.rename).map(([a, b]) => `<tr><td>${esc(a)}</td><td>→ ${esc(b)}</td><td><button class="linkbtn" data-act="unrename" data-k="${esc(a)}">Undo</button></td></tr>`).join('')}</tbody></table>` : ''}
