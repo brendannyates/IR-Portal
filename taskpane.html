@@ -296,7 +296,7 @@ applyTheme();
 // Clinic view (default) or Admin view, chosen per computer in Settings. A convenience, not a permission.
 const isAdmin = () => { try { const r = localStorage.getItem('irRole'); return (r ?? ROLE_IN) === 'admin'; } catch { return ROLE_IN === 'admin'; } };
 const startTab = () => { try { return isAdmin() && localStorage.getItem('irStart') === 'rep' ? 'rep' : 'dash'; } catch { return 'dash'; } };
-const S = { ...wvLoad(), open: new Set(), wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, reclass: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
+const S = { ...wvLoad(), open: new Set(), wl: wlLoadSafe(), allTypes: (() => { try { return localStorage.getItem('irAll') === '1'; } catch { return false; } })(), notes: {}, reclass: {}, reprov: {}, sidx: {}, loc: (() => { try { return localStorage.getItem('irLoc') || ''; } catch { return ''; } })(), tab: startTab(), rows: [], cfg: null, sent: {}, f: { q: '', fac: '', prov: '', desc: '', nc: false, due: '', st: '', fk: '' }, sort: null, sigView: 'open', clinView: 'open', loadErr: '' };
 
 // Columns are found by header name, so moving or inserting columns in the Filtered tab doesn't break anything.
 const COLS = {
@@ -403,6 +403,9 @@ function parse(values, sheet){
       // a user's reclassification of this item wins over the portal's description
       o.rcBase = o.desc; const rc = rcFind(o.id, o.desc);
       if (rc){ o.rcBase = rc.from; o.rc = rc; o.desc = dispCat(rc.to); }
+      // and a user's reassignment wins over the portal's provider
+      o.pvBase = o.prov; const pv = pvFind(o.id, o.prov, /filtered/i.test(sheet));
+      if (pv){ o.pvBase = pv.from; o.pv = pv; o.prov = pv.to; }
       o.code = codify(o.last, o.first); o.name = [o.last, o.first].filter(Boolean).join(', ');
       o.age = o.dos ? days(today(), o.dos) : null; o.dueIn = o.due ? days(o.due, today()) : null; o.agecat = ageCat(o.age); o.agecatL = AGE_CATS[o.agecat];
       rows.push(o);
@@ -700,6 +703,7 @@ async function reload0(quiet){
     if (S.store.remote) loadCfg(); // full-screen window: use the panel's saved settings
     S.notes = Object.assign({}, S.store.getDoc('irNotes') || {});
     S.reclass = Object.assign({}, S.store.getDoc('irReclass') || {}); S._rcTo = null;
+    S.reprov = Object.assign({}, S.store.getDoc('irReprov') || {}); S._pvTo = null;
     try { await mergeOwnTabs(d.sheets || []); } catch (e){ console.error(e); }
     S.sheets = d.sheets || [];
     if (!d.values){ S.loadErr = auto ? 'There\'s no IR Portal export or Filtered tab in this workbook yet.' : `There's no tab named "${S.cfg.sheet}" in this workbook.`; S.rows = []; S.missing = []; }
@@ -954,8 +958,11 @@ async function renameInSheet(sheet, oldN, newN){
 // ---------- incident detail: edit status and note ----------
 function editIncident(id){
   const rows = S.rows.filter(r => r.id === id); if (!rows.length) return; const r = rows[0]; const rec = noteRec(id); const ch = catChoices();
+  const pvs = [...new Map(rows.map(x => [x.pvBase, x])).values()], pch = provChoices(); // one picker per portal provider on the incident (nearly always one)
   openModal(`<h2 style="margin:0 0 6px;display:flex;gap:8px;align-items:center">Incident ${esc(id)}<span class="grow"></span><button class="iconbtn" data-act="closeModal" aria-label="Close">✕</button></h2>
-    <div class="hdrs" style="grid-template-columns:90px minmax(0,1fr)"><b>Patient</b><span>${esc(r.name)} <span class="muted">(${esc(r.code)})</span></span><b>MRN</b><span>${esc(r.mrn)}</span><b>Clinic</b><span>${esc(r.fac)}</span><b>Provider</b><span>${esc(r.prov)}</span><b>DOS</b><span>${fmtD(r.dos)}</span><b>Due</b><span>${fmtD(r.due)}</span></div>
+    <div class="hdrs" style="grid-template-columns:90px minmax(0,1fr)"><b>Patient</b><span>${esc(r.name)} <span class="muted">(${esc(r.code)})</span></span><b>MRN</b><span>${esc(r.mrn)}</span><b>Clinic</b><span>${esc(r.fac)}</span><b>Provider</b><span>${pvs.map((x, j) => `<div${j ? ' style="margin-top:4px"' : ''}><select class="fld" data-pvbase="${esc(x.pvBase)}" data-pvi="${j}" aria-label="Provider" style="width:auto;max-width:100%;min-height:30px;padding:3px 6px">${[...new Set([x.pvBase, ...pch])].map(p => `<option value="${esc(p)}" ${p === x.prov ? 'selected' : ''}>${esc(p)}${p === x.pvBase ? ' (portal)' : ''}</option>`).join('')}<option value="__new">New provider…</option></select>${x.pv ? '<span class="pill info" style="margin-left:6px">Reassigned</span>' : ''}
+      <input class="fld" data-pvnew="${j}" hidden placeholder="Provider name, as the portal spells it" style="margin-top:4px">
+      ${x.pv ? `<div class="small muted" style="margin-top:2px">Reassigned from ${esc(x.pv.from)}${x.pv.at ? ' on ' + new Date(x.pv.at).toLocaleString([], { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}${x.pv.by ? ' by ' + esc(x.pv.by) : ''}. Pick the (portal) one to undo.</div>` : ''}</div>`).join('')}</span><b>DOS</b><span>${fmtD(r.dos)}</span><b>Due</b><span>${fmtD(r.due)}</span></div>
     <h3>${rows.length > 1 ? rows.length + ' items on this incident' : 'Item'}</h3>
     ${rows.map((x, i) => `<div class="srow" style="background:var(--surface2)"><div class="row"><b>${esc(x.desc)}</b>${isCtrl(x.desc) ? '' : '<span class="pill">Non-controllable</span>'}${x.rc ? '<span class="pill info">Reclassified</span>' : ''}</div><div class="small muted" style="white-space:pre-wrap;word-break:break-word">${esc(x.raw)}</div>${x.act && typeof x.act === 'string' ? `<div class="small muted">Last activity: ${esc(x.act)}</div>` : ''}
       <div class="row" style="margin-top:6px;gap:6px"><label class="small muted" for="rc${i}" style="font-weight:650">Description</label><select class="fld" id="rc${i}" data-rcbase="${esc(x.rcBase)}" data-rci="${i}" style="width:auto;max-width:100%;min-height:30px;padding:3px 6px">${[...new Set([x.rcBase, ...ch])].map(c => `<option value="${esc(c)}" ${c === x.desc ? 'selected' : ''}>${esc(c)}${c === x.rcBase ? ' (portal)' : ''}</option>`).join('')}<option value="__new">New description…</option></select></div>
@@ -982,14 +989,14 @@ async function sheetIndex(sheet, force){
   if (!force && S.sidx[sheet]) return S.sidx[sheet];
   const v = await S.store.readSheet(sheet);
   const hi = findHeader(v, IRH); if (hi < 0) return null;
-  const H = v[hi]; const inc = hcol(H, COLS.id), desc = hcol(H, COLS.desc);
+  const H = v[hi]; const inc = hcol(H, COLS.id), desc = hcol(H, COLS.desc), prov = hcol(H, COLS.prov);
   let st = hcol(H, 'status'), no = hcol(H, ['notes', 'note']), hasHdr = st >= 0 && no >= 0;
   if (!hasHdr){ // Status / Notes go in A:B; columns are only inserted when A:B are already in use
     if (String(H[0] ?? '').trim() || String(H[1] ?? '').trim()){ await S.store.insertCols(sheet, 2); return sheetIndex(sheet, true); }
     st = 0; no = 1;
   }
   const rows = new Map(); for (let r = hi + 1; r < v.length; r++){ const k = String(v[r][inc] ?? '').trim(); if (!k) continue; if (!rows.has(k)) rows.set(k, []); rows.get(k).push(r); }
-  return (S.sidx[sheet] = { hi, inc, desc, st, no, rows, hasHdr });
+  return (S.sidx[sheet] = { hi, inc, desc, prov, st, no, rows, hasHdr });
 }
 function noteTabs(){
   const R = S.rep || { ir: {}, has: () => false };
@@ -1015,7 +1022,9 @@ async function writeNotes(ids, onlySheets){
 const NOTES_TAB = 'IR Notes', RC_TAB = 'IR Reclassifications';
 const NOTES_HDR = ['Incident ID', 'MRN', 'Clinic', 'Provider', 'Description', 'Status', 'Flag', 'Notes', 'Saved At', 'Saved By'];
 const RC_HDR = ['Saved At', 'Saved By', 'Incident ID', 'MRN', 'Clinic', 'Provider', 'Original Category', 'Previous', 'Reclassified As', 'Portal Description'];
-const OWN_TABS = [NOTES_TAB, RC_TAB];
+const PV_TAB = 'IR Provider Changes';
+const PV_HDR = ['Saved At', 'Saved By', 'Incident ID', 'MRN', 'Clinic', 'Description', 'Original Provider', 'Previous Provider', 'Reassigned To'];
+const OWN_TABS = [NOTES_TAB, RC_TAB, PV_TAB];
 const newer = (a, b) => !b || String(a.at || '') > String(b.at || '');
 const rcK = (id, cat) => id + '|' + cat;
 function rcIndex(){ const m = new Map(); for (const r of Object.values(S.reclass)) if (r.to) m.set(rcK(r.id, dispCat(r.to)), r); return (S._rcTo = m); }
@@ -1025,11 +1034,21 @@ function rcFind(id, cat){
   if (r) return r.to && r.to !== r.from ? r : null;
   return (S._rcTo || rcIndex()).get(rcK(id, cat)) || null;
 }
+// provider reassignments work the same way, keyed by the portal's provider. Look up by where it went only on a
+// Filtered tab (already rewritten); on a raw export a second item on the incident may really be that provider's.
+const pvK = rcK;
+function pvIndex(){ const m = new Map(); for (const r of Object.values(S.reprov)) if (r.to) m.set(pvK(r.id, r.to), r); return (S._pvTo = m); }
+function pvFind(id, prov, shown){
+  if (!id) return null; const r = S.reprov[pvK(id, prov)];
+  if (r) return r.to && r.to !== r.from ? r : null;
+  return shown ? (S._pvTo || pvIndex()).get(pvK(id, prov)) || null : null;
+}
 function noteRow(id){
   const rs = S.rows.filter(r => r.id === id); const r = rs[0] || {}; const n = noteRec(id) || {};
   return [id, r.mrn || '', r.fac || '', r.prov || '', [...new Set(rs.map(x => x.desc))].join('; '), statusOf(id), n.flag ? 'Yes' : '', n.note || '', n.at || '', n.by || ''];
 }
 const rcRow = r => [r.at || '', r.by || '', r.id, r.mrn || '', r.fac || '', r.prov || '', r.from, r.was || r.from, r.to || r.from, r.raw || ''];
+const pvRow = r => [r.at || '', r.by || '', r.id, r.mrn || '', r.fac || '', r.desc || '', r.from, r.was || r.from, r.to || r.from];
 const isoOf = v => { const t = String(v ?? '').trim(); if (!t) return ''; if (/^\d{4}-\d\d-\d\dT/.test(t)) return t; const d = new Date(t); return isNaN(d) ? '' : d.toISOString(); };
 // statuses / notes / flags from any tab with Incident ID + Status + Notes headers (IR Notes, a Filtered tab, a worked export)
 function readNotesInto(v, out){
@@ -1052,14 +1071,25 @@ function readRcInto(v, out){
     if (newer(rec, out[rcK(id, from)])) out[rcK(id, from)] = rec;
   }
 }
+function readPvInto(v, out){
+  const hi = findHeader(v, [COLS.id, 'original provider', 'reassigned to']); if (hi < 0) return;
+  const H = v[hi]; const g = (row, n) => { const j = hcol(H, n); return j >= 0 ? String(row[j] ?? '').trim() : ''; };
+  for (let i = hi + 1; i < v.length; i++){
+    const row = v[i] || []; const id = g(row, COLS.id), from = g(row, 'original provider'), to = g(row, 'reassigned to'); if (!id || !from) continue;
+    const rec = { id, from, to: to === from ? '' : to, was: g(row, 'previous provider'), mrn: g(row, 'mrn'), fac: g(row, 'clinic'), desc: g(row, 'description'), at: isoOf(g(row, 'saved at')) || null, by: g(row, 'saved by') };
+    if (newer(rec, out[pvK(id, from)])) out[pvK(id, from)] = rec;
+  }
+}
 // on every read: the tabs win over the add-in's saved copy when they're newer (another person's edit, or a merge)
 async function mergeOwnTabs(sheets){
-  const notes = {}, rcs = {};
+  const notes = {}, rcs = {}, pvs = {};
   if (sheets.includes(NOTES_TAB)) readNotesInto(await S.store.readSheet(NOTES_TAB), notes);
   if (sheets.includes(RC_TAB)) readRcInto(await S.store.readSheet(RC_TAB), rcs);
+  if (sheets.includes(PV_TAB)) readPvInto(await S.store.readSheet(PV_TAB), pvs);
   for (const [id, r] of Object.entries(notes)) if (newer(r, S.notes[id])) S.notes[id] = r;
   for (const [k, r] of Object.entries(rcs)) if (newer(r, S.reclass[k])) S.reclass[k] = r;
-  S._rcTo = null;
+  for (const [k, r] of Object.entries(pvs)) if (newer(r, S.reprov[k])) S.reprov[k] = r;
+  S._rcTo = null; S._pvTo = null;
 }
 async function saveNotesTab(ids){ if (ids.length) await S.store.upsertRows(NOTES_TAB, NOTES_HDR, ids.map(noteRow), 0); }
 // ----- reclassify one item's description -----
@@ -1099,11 +1129,47 @@ async function rcWriteFiltered(list){
   if (n) try { await S.store.refreshPivots(); } catch (e){ console.error(e); }
   return n;
 }
+// ----- reassign one incident's provider -----
+function provChoices(){
+  return [...new Set([...S.rows.flatMap(r => [r.prov, r.pvBase]), ...Object.keys(S.cfg.providers), ...Object.values(S.reprov).map(r => r.to)].filter(p => p && p !== '(No provider)'))].sort(byName);
+}
+async function saveReprov(id, picks){
+  const rows = S.rows.filter(r => r.id === id); const now = new Date().toISOString(), by = S.cfg.signoff || ''; const changed = [];
+  for (const [base, to] of picks){
+    const cur = S.reprov[pvK(id, base)]; const curTo = cur && cur.to ? cur.to : base;
+    if (to === curTo) continue;
+    const rs = rows.filter(x => x.pvBase === base); const r = rs[0] || rows[0] || {};
+    const rec = { id, from: base, to: to === base ? '' : to, was: curTo, mrn: r.mrn || '', fac: r.fac || '', desc: [...new Set((rs.length ? rs : rows).map(x => x.desc))].join('; '), at: now, by };
+    S.reprov[pvK(id, base)] = rec; changed.push(rec);
+  }
+  if (!changed.length) return 0;
+  S._pvTo = null;
+  await S.store.setDoc('irReprov', Object.assign({}, S.store.getDoc('irReprov') || {}, S.reprov));
+  try { await S.store.upsertRows(PV_TAB, PV_HDR, changed.map(pvRow), -1); } catch (e){ console.error(e); toast('warn', 'Saved in the add-in, but couldn\'t add the row to the ' + PV_TAB + ' tab: ' + esc(e.message || e)); }
+  try { await pvWriteFiltered(changed); } catch (e){ console.error(e); }
+  return changed.length;
+}
+// Filtered tabs already built: change the Provider cell so the attached workbook matches (the pivots don't use it)
+async function pvWriteFiltered(list){
+  const cell = p => p === '(No provider)' ? '' : p; let n = 0;
+  for (const P of PARTS){
+    if (!(S.rep && S.rep.has(P.filtered))) continue;
+    for (let attempt = 0; attempt < 2; attempt++){
+      const ix = await sheetIndex(P.filtered, attempt > 0); if (!ix || ix.prov < 0) break; let moved = false;
+      for (const pv of list) for (const r of ix.rows.get(String(pv.id)) || []){
+        const ok = await S.store.writeCells(P.filtered, [{ r, c: ix.prov, v: cell(pv.to || pv.from) }], [{ r, c: ix.inc, v: String(pv.id) }, { r, c: ix.prov, v: cell(pv.was || pv.from) }]);
+        if (ok) n++; else moved = true;
+      }
+      if (!moved) break;
+    }
+  }
+  return n;
+}
 // ----- the notes file: download at EOD, merge into the next day's workbook -----
 function carryIds(){
   const live = new Set(S.rows.map(r => r.id).filter(Boolean));
   const ids = [...live].filter(id => { const n = noteRec(id); const st = statusOf(id); return n && st !== CLEARED && (n.note || n.flag || st !== 'Needs review'); });
-  return { live, ids, rcs: Object.values(S.reclass).filter(r => live.has(r.id)) };
+  return { live, ids, rcs: Object.values(S.reclass).filter(r => live.has(r.id)), pvs: Object.values(S.reprov).filter(r => live.has(r.id)) };
 }
 function saveBlob(data, name, type){
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type })); a.download = name; document.body.appendChild(a); a.click();
@@ -1111,25 +1177,26 @@ function saveBlob(data, name, type){
 }
 async function downloadNotes(){
   try {
-    await loadXLSX(); const { ids, rcs } = carryIds();
+    await loadXLSX(); const { ids, rcs, pvs } = carryIds();
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([NOTES_HDR, ...ids.map(noteRow)]), NOTES_TAB);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([RC_HDR, ...rcs.map(rcRow)]), RC_TAB);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([PV_HDR, ...pvs.map(pvRow)]), PV_TAB);
     const name = `IR Notes ${fmtShort(today())}.xlsx`;
     saveBlob(XLSX.write(wb, { bookType: 'xlsx', type: 'array' }), name, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     S._dlAt = new Date();
-    toast('ok', `Downloaded ${esc(name)}: ${ids.length} worked incident${ids.length === 1 ? '' : 's'}, ${rcs.length} reclassification${rcs.length === 1 ? '' : 's'}. Keep it with the IR files on OneDrive / SharePoint. If nothing downloaded, save this workbook instead: its ${NOTES_TAB} tab merges the same way.`);
+    toast('ok', `Downloaded ${esc(name)}: ${ids.length} worked incident${ids.length === 1 ? '' : 's'}, ${rcs.length} reclassification${rcs.length === 1 ? '' : 's'}, ${pvs.length} provider change${pvs.length === 1 ? '' : 's'}. Keep it with the IR files on OneDrive / SharePoint. If nothing downloaded, save this workbook instead: its ${NOTES_TAB} tab merges the same way.`);
   } catch (e){ console.error(e); toast('bad', 'Couldn\'t make the notes file: ' + esc(e.message || e)); }
 }
 // live = the Incident IDs on the report being carried into (defaults to the Worklist's rows)
 async function mergeNotes(file, live){
     await loadXLSX();
     const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
-    const notes = {}, rcs = {};
-    for (const n of wb.SheetNames){ const v = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' }); readNotesInto(v, notes); readRcInto(v, rcs); }
-    if (!Object.keys(notes).length && !Object.keys(rcs).length) throw new Error(`${file.name} has no notes in it. Use yesterday's worked IR workbook (Incident ID, Status and Notes columns) or the IR Notes file from the EOD email.`);
+    const notes = {}, rcs = {}, pvs = {};
+    for (const n of wb.SheetNames){ const v = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' }); readNotesInto(v, notes); readRcInto(v, rcs); readPvInto(v, pvs); }
+    if (!Object.keys(notes).length && !Object.keys(rcs).length && !Object.keys(pvs).length) throw new Error(`${file.name} has no notes in it. Use yesterday's worked IR workbook (Incident ID, Status and Notes columns) or the IR Notes file from the EOD email.`);
     live = live || new Set(S.rows.map(r => r.id).filter(Boolean)); const onReport = id => !live.size || live.has(id);
-    const res = { notes: 0, newerHere: 0, gone: 0, rc: 0 }; const ids = [], rcList = [];
+    const res = { notes: 0, newerHere: 0, gone: 0, rc: 0, pv: 0 }; const ids = [], rcList = [], pvList = [];
     for (const [id, r] of Object.entries(notes)){
       if (!onReport(id)){ res.gone++; continue; }
       if (newer(r, S.notes[id]) || (!S.notes[id] || (!S.notes[id].note && !S.notes[id].flag && statusOf(id) === 'Needs review'))){ S.notes[id] = r; ids.push(id); res.notes++; } else res.newerHere++;
@@ -1138,12 +1205,17 @@ async function mergeNotes(file, live){
       if (!onReport(r.id)) continue;
       if (newer(r, S.reclass[k])){ r.was = (S.reclass[k] && S.reclass[k].to) || r.from; S.reclass[k] = r; rcList.push(r); if (r.to) res.rc++; }
     }
-    S._rcTo = null; S.irCache = null;
+    for (const [k, r] of Object.entries(pvs)){
+      if (!onReport(r.id)) continue;
+      if (newer(r, S.reprov[k])){ r.was = (S.reprov[k] && S.reprov[k].to) || r.from; S.reprov[k] = r; pvList.push(r); if (r.to) res.pv++; }
+    }
+    S._rcTo = null; S._pvTo = null; S.irCache = null;
     busy(true, 'Carrying notes over…');
     await S.store.setDoc('irNotes', Object.assign({}, S.store.getDoc('irNotes') || {}, S.notes));
     await S.store.setDoc('irReclass', Object.assign({}, S.store.getDoc('irReclass') || {}, S.reclass));
-    try { await saveNotesTab(ids); if (rcList.length) await S.store.upsertRows(RC_TAB, RC_HDR, rcList.map(rcRow), -1); } catch (e){ console.error(e); }
-    try { if (ids.length) await writeNotes(ids); if (rcList.length) await rcWriteFiltered(rcList); } catch (e){ console.error(e); }
+    await S.store.setDoc('irReprov', Object.assign({}, S.store.getDoc('irReprov') || {}, S.reprov));
+    try { await saveNotesTab(ids); if (rcList.length) await S.store.upsertRows(RC_TAB, RC_HDR, rcList.map(rcRow), -1); if (pvList.length) await S.store.upsertRows(PV_TAB, PV_HDR, pvList.map(pvRow), -1); } catch (e){ console.error(e); }
+    try { if (ids.length) await writeNotes(ids); if (rcList.length) await rcWriteFiltered(rcList); if (pvList.length) await pvWriteFiltered(pvList); } catch (e){ console.error(e); }
     return res;
 }
 async function mergeNotesFile(file){
@@ -1156,6 +1228,7 @@ async function mergeNotesFile(file){
       <table class="set"><tbody>
         <tr><td>Statuses / notes / flags carried forward</td><td style="text-align:right;font-weight:700">${res.notes}</td></tr>
         <tr><td>Reclassifications carried forward</td><td style="text-align:right;font-weight:700">${res.rc}</td></tr>
+        <tr><td>Provider changes carried forward</td><td style="text-align:right;font-weight:700">${res.pv}</td></tr>
         ${res.newerHere ? `<tr><td class="muted">Kept this workbook's newer note</td><td style="text-align:right">${res.newerHere}</td></tr>` : ''}
         ${res.gone ? `<tr><td class="muted">Dropped off the report (not carried)</td><td style="text-align:right">${res.gone}</td></tr>` : ''}
       </tbody></table>
@@ -1473,9 +1546,13 @@ document.addEventListener('click', async ev => {
     unrename: async () => { const m = Object.assign({}, S.cfg.rename); delete m[b.dataset.k]; S.cfg.rename = m; await saveCfg(); S.irCache = null; await reload(true); toast('ok', 'Rename undone. Rebuild a Filtered tab to update it.'); },
     incSave: async () => { const id = b.dataset.id; const note = $('#incNote').value, st = $('#incStatus').value, flag = $('#incFlag').checked;
       const picks = new Map(); document.querySelectorAll('#sheet [data-rcbase]').forEach(s => { let to = s.value; if (to === '__new') to = ($(`#sheet [data-rcnew="${s.dataset.rci}"]`)?.value || '').trim(); if (to && !picks.has(s.dataset.rcbase)) picks.set(s.dataset.rcbase, to); });
-      closeModal(); let n = 0;
+      const pvPicks = new Map(); document.querySelectorAll('#sheet [data-pvbase]').forEach(s => { let to = s.value; if (to === '__new') to = ($(`#sheet [data-pvnew="${s.dataset.pvi}"]`)?.value || '').trim(); if (to) pvPicks.set(s.dataset.pvbase, to); });
+      closeModal(); let n = 0, np = 0;
       try { n = await saveReclass(id, picks); } catch (e){ console.error(e); toast('bad', 'Couldn\'t save the reclassification: ' + esc(e.message || e)); }
-      await saveIncident(id, note, st, { flag }); if (n) await reload(true); toast('ok', n ? `Saved. ${n === 1 ? 'Reclassification' : n + ' reclassifications'} added to the ${RC_TAB} tab.` : 'Saved.'); },
+      try { np = await saveReprov(id, pvPicks); } catch (e){ console.error(e); toast('bad', 'Couldn\'t save the provider change: ' + esc(e.message || e)); }
+      await saveIncident(id, note, st, { flag }); if (n || np) await reload(true);
+      const said = [n ? `${n === 1 ? 'Reclassification' : n + ' reclassifications'} added to the ${RC_TAB} tab.` : '', np ? `Provider change added to the ${PV_TAB} tab.` : ''].filter(Boolean).join(' ');
+      toast('ok', said ? 'Saved. ' + said : 'Saved.'); },
     dlNotes: () => downloadNotes(),
     appReload: () => { if (!$('#modal').hidden){ toast('warn', 'Save or close the open window first, then reload.'); return; } const u = new URL(location.href); u.searchParams.set('_v', S._upd || Date.now()); location.replace(u.toString()); }, // new address, so the browser can't hand back the cached page
     eodEmail: () => showIrEmail('EOD'),
@@ -1549,6 +1626,7 @@ document.addEventListener('change', async e => {
   if (t.dataset.rcbase !== undefined){ // same original category on one incident moves together
     const nw = $(`#sheet [data-rcnew="${t.dataset.rci}"]`); if (nw){ nw.hidden = t.value !== '__new'; if (!nw.hidden) nw.focus(); }
     document.querySelectorAll('#sheet [data-rcbase]').forEach(s => { if (s !== t && s.dataset.rcbase === t.dataset.rcbase && t.value !== '__new') s.value = t.value; }); return; }
+  if (t.dataset.pvbase !== undefined){ const nw = $(`#sheet [data-pvnew="${t.dataset.pvi}"]`); if (nw){ nw.hidden = t.value !== '__new'; if (!nw.hidden) nw.focus(); } return; }
   if (t.dataset.mergenotes){ const f = t.files && t.files[0]; t.value = ''; if (f) mergeNotesFile(f); return; }
   if (t.dataset.plupload){ const f = t.files && t.files[0]; t.value = ''; if (f) plUpload(f); return; }
   if (t.dataset.upload){ const f = t.files && t.files[0]; t.value = ''; if (f) startUpload(t.dataset.upload, f); return; }
@@ -1648,13 +1726,13 @@ async function readIR(part){
   // every named column, wherever it sits; our own Status / Notes and unnamed columns are left out
   const hdrRaw = values[hi]; const keep = hdrRaw.map((h, i) => i).filter(i => String(hdrRaw[i] ?? '').trim() && hcol([hdrRaw[i]], ['status', 'notes', 'note']) < 0);
   const header = keep.map(i => String(hdrRaw[i]).trim());
-  const iD = hcol(header, COLS.desc), iF = hcol(header, COLS.fac), iI = hcol(header, COLS.id);
+  const iD = hcol(header, COLS.desc), iF = hcol(header, COLS.fac), iI = hcol(header, COLS.id), iP = hcol(header, COLS.prov);
   const rows = [];
   for (let r = hi + 1; r < values.length; r++){
     const v = keep.map(i => values[r][i]); if (!v.some(x => x !== '' && x !== null && x !== undefined)) continue;
     rows.push({ v, desc: v[iD], fac: normLoc(v[iF]), id: String(v[iI] ?? '').trim() });
   }
-  return { header, rows, iD, iF, iI };
+  return { header, rows, iD, iF, iI, iP };
 }
 function classifyAll(data){
   const out = []; const unknown = new Map();
@@ -1695,7 +1773,8 @@ async function buildIR(part, opts = {}){
     if (!(await resolveOutliers(data))) return;
     busy(true, 'Writing the Filtered tab and pivot…');
     const keep = data.rows.filter(r => r.c.ctrl);
-    const values = [['Status', 'Notes', ...data.header], ...keep.map(r => { const v = r.v.slice(); v[data.iD] = r.c.cat; v[data.iF] = r.fac; return [statusOf(r.id), noteOf(r.id), ...v.map(x => x ?? '')]; })];
+    const values = [['Status', 'Notes', ...data.header], ...keep.map(r => { const v = r.v.slice(); v[data.iD] = r.c.cat; v[data.iF] = r.fac;
+      if (data.iP >= 0){ const pv = pvFind(r.id, String(v[data.iP] ?? '').trim() || '(No provider)'); if (pv) v[data.iP] = pv.to; } return [statusOf(r.id), noteOf(r.id), ...v.map(x => x ?? '')]; })];
     const hD = data.header[data.iD], hF = data.header[data.iF], hV = data.header[hcol(data.header, COLS.org)] || data.header[data.iI] || hD; // pivot fields by the export's own header text
     const src = S.rep.ir[part];
     if (src && src.sheet !== P.raw){ await S.store.renameSheet(src.sheet, P.raw); delete S.sidx[src.sheet]; if (S.irCache) delete S.irCache[part]; src.sheet = P.raw; }
@@ -1984,7 +2063,7 @@ async function uploadPart(part, file, prior){
     const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [rawName]); } catch (e){ console.error(e); } }
     await scanSources(); busy(false);
     await buildIR(part);
-    if (merged) toast('ok', `From ${esc(prior.name)}: ${merged.notes} status${merged.notes === 1 ? '' : 'es'} / notes and ${merged.rc} reclassification${merged.rc === 1 ? '' : 's'} carried into ${part}${merged.gone ? `; ${merged.gone} no longer on the report` : ''}${merged.newerHere ? `; kept ${merged.newerHere} newer note${merged.newerHere === 1 ? '' : 's'} already here` : ''}.`);
+    if (merged) toast('ok', `From ${esc(prior.name)}: ${merged.notes} status${merged.notes === 1 ? '' : 'es'} / notes, ${merged.rc} reclassification${merged.rc === 1 ? '' : 's'} and ${merged.pv} provider change${merged.pv === 1 ? '' : 's'} carried into ${part}${merged.gone ? `; ${merged.gone} no longer on the report` : ''}${merged.newerHere ? `; kept ${merged.newerHere} newer note${merged.newerHere === 1 ? '' : 's'} already here` : ''}.`);
     return true;
   } catch (e){ busy(false); toast('bad', esc(e.message || e)); console.error(e); return false; }
 }
@@ -2201,7 +2280,7 @@ function openFull(){
       const { rid, op, args } = m;
       try {
         let res;
-        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes'), irReclass: S.store.getDoc('irReclass') }; res.prefs = prefSnap(); }
+        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes'), irReclass: S.store.getDoc('irReclass'), irReprov: S.store.getDoc('irReprov') }; res.prefs = prefSnap(); }
         else if (['setDoc', 'sheetsInfo', 'readSheet', 'removeSheets', 'writeSheet', 'writeCells', 'upsertRows', 'insertCols', 'refreshPivots', 'renameSheet', 'buildPivots', 'activate'].includes(op)) res = await S.store[op](...(args || []));
         else throw new Error('Unknown request');
         reply({ rid, ok: true, res: res ?? null });
@@ -2214,7 +2293,7 @@ function openFull(){
 }
 
 // ---------- update notice: the build stamps APP_BUILD and version.json; an open panel compares them ----------
-const APP_BUILD = 'e47c5c2fc1';
+const APP_BUILD = 'd50ccc7ee0';
 function checkUpdate(){
   if (APP_BUILD.startsWith('__') || S._upd || Date.now() - (S._updAt || 0) < 60000) return; // unbuilt source, already shown, or checked in the last minute
   S._updAt = Date.now();
