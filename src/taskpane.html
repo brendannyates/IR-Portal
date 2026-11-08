@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IR Portal Tracker</title>
 <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-<link rel="stylesheet" href="dev-updates.css?v=1">
-<script src="dev-updates.js?v=1"></script>
+<link rel="stylesheet" href="dev-updates.css?v=2">
+<script src="dev-updates.js?v=2"></script>
 <style>
 :root{
   --bg:#f5f1ea;--surface:#fffdf9;--surface2:#f2ece2;--hover:#f8f3eb;--ink:#29241f;--muted:#6e665c;--faint:#9a9085;--line:#e6ded0;--line2:#d9cfbf;
@@ -61,8 +61,14 @@ header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg
 .iconbtn.theme[aria-pressed="true"]{background:transparent;color:var(--muted)}
 .iconbtn.theme.swap .tcur{animation:irswapL .38s cubic-bezier(.3,.7,.3,1)}
 .iconbtn.theme.swap .tgo{animation:irswapR .38s cubic-bezier(.3,.7,.3,1)}
-@keyframes irswapL{from{transform:translateX(26px) rotate(-90deg);opacity:1}}
-@keyframes irswapR{from{transform:translateX(-26px) rotate(90deg);opacity:.45}}/* the Dev Update bell (dev-updates.css) in this add-in's tokens; docked it matches the 34px icon buttons */
+@keyframes irswapL{from{transform:translateX(12px) rotate(-90deg);opacity:1}}
+@keyframes irswapR{from{transform:translateX(-12px) rotate(90deg);opacity:.6}}
+/* half and half: the left half of where you are, the slash, the right half of the mode to press */
+.iconbtn.theme{gap:0;padding:0 9px}.iconbtn.theme svg{width:20px;height:20px}
+.iconbtn.theme .tcur svg{clip-path:inset(0 50% 0 0)}.iconbtn.theme .tgo svg{clip-path:inset(0 0 0 50%)}
+.iconbtn.theme .tcur{margin-right:-8px;opacity:.6}.iconbtn.theme .tgo{margin-left:-8px}
+.iconbtn.theme .tsl{position:relative;z-index:1;padding:0 1px}
+/* the Dev Update bell (dev-updates.css) in this add-in's tokens; docked it matches the 34px icon buttons */
 :root{--surface-2:var(--surface2);--surface-3:var(--hover);--font:"Segoe UI",system-ui,-apple-system,sans-serif}
 .devupd.du-docked .du-bell{width:34px;height:34px;border-radius:var(--r-sm)}
 .devupd.du-docked .du-bell svg{width:18px;height:18px}
@@ -845,7 +851,8 @@ async function reload0(quiet){
 }
 
 // ---------- views ----------
-// the toolbar, flush right: Settings, Refresh, Full screen (or Exit full screen), light/dark as "sun / moon", then the Dev Update bell.
+// the toolbar, flush right: Settings, Refresh, Full screen (or Exit full screen), light/dark as "sun / moon". The Dev Update bell
+// floats (dev-updates.js): it starts bottom right and can be dragged anywhere.
 // Each hover label says what a press does; light/dark names the mode it switches to, and its two icons swap places on a change.
 const ICON_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></svg>';
 function toolsHTML(){
@@ -853,7 +860,7 @@ function toolsHTML(){
   const full = S.mode === 'dialog' ? `<button class="iconbtn" data-act="closeFull" data-tip="Exit full screen" aria-label="Exit full screen">${ICON_EXIT}</button>`
     : S.canFull && S.mode === 'pane' ? `<button class="iconbtn" data-act="full" data-tip="Full screen" aria-label="Full screen">${ICON_FULL}</button>` : '';
   const theme = `<button class="iconbtn theme${dark ? ' is-dark' : ''}${S.themeSwap ? ' swap' : ''}" data-act="theme" data-tip="${tl}" aria-label="Switch to ${tl.toLowerCase()}" aria-pressed="${dark}">${dark ? `<span class="tcur">${ICON_MOON}</span><span class="tsl">/</span><span class="tgo">${ICON_SUN}</span>` : `<span class="tcur">${ICON_SUN}</span><span class="tsl">/</span><span class="tgo">${ICON_MOON}</span>`}</button>`;
-  return `<div class="tools"><button class="iconbtn" data-act="tab" data-v="set" data-tip="Settings" aria-label="Settings" aria-pressed="${S.tab === 'set'}">${ICON_GEAR}</button><button class="iconbtn" data-act="refresh" data-tip="Refresh" aria-label="Refresh from the workbook">${ICON_REFRESH}</button>${full}${theme}<span class="du-slot"></span></div>`;
+  return `<div class="tools"><button class="iconbtn" data-act="tab" data-v="set" data-tip="Settings" aria-label="Settings" aria-pressed="${S.tab === 'set'}">${ICON_GEAR}</button><button class="iconbtn" data-act="refresh" data-tip="Refresh" aria-label="Refresh from the workbook">${ICON_REFRESH}</button>${full}${theme}</div>`;
 }
 function header(){
   const sig = ctrlRows().filter(r => routeOf(r.desc) === 'provider');
