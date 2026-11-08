@@ -1,0 +1,14 @@
+{
+  "updates": [
+    {
+      "id": "2026-11-07-name-screen-bell",
+      "date": "2026-11-07",
+      "bullets": [
+        "New: The first time you open the IR Portal Tracker each day, it asks for your name. Pick yours, or add it if you're new. To change it, use Switch user next to Location.",
+        "Changed: Notes, reclassifications and provider changes now record the name you picked, not the email sign-off name.",
+        "New: While the workbook is read, a loading screen shows each step.",
+        "New: This bell, at the end of the toolbar, shows what changed in the tracker. Every toolbar button names what it does when you hover over it, and light/dark mode shows as sun / moon."
+      ]
+    }
+  ]
+}

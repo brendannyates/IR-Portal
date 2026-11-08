@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IR Portal Tracker</title>
 <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<link rel="stylesheet" href="dev-updates.css?v=1">
+<script src="dev-updates.js?v=1"></script>
 <style>
 :root{
   --bg:#f5f1ea;--surface:#fffdf9;--surface2:#f2ece2;--hover:#f8f3eb;--ink:#29241f;--muted:#6e665c;--faint:#9a9085;--line:#e6ded0;--line2:#d9cfbf;
@@ -45,6 +47,27 @@ header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg
 .iconbtn svg{width:18px;height:18px;display:block}
 .iconbtn[aria-pressed="true"]{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 @media(max-width:480px){.brand small{display:none}}
+/* toolbar, flush right; hover labels say what a press does (light/dark names the mode it switches to) */
+.tools{display:flex;align-items:center;gap:2px;flex:none}
+.tools .iconbtn{position:relative}
+.tools .iconbtn[data-tip]:hover::after,.tools .iconbtn[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:5px 9px;border-radius:8px;background:var(--ink);color:var(--surface);font-size:12px;font-weight:500;line-height:1.2;pointer-events:none;z-index:60}
+/* light / dark: "sun / moon"; the right one is the one to press, the left is where you are. They swap places on a change. */
+.iconbtn.theme{display:flex;align-items:center;gap:3px;padding:0 8px}
+.iconbtn.theme svg{width:16px;height:16px}
+.iconbtn.theme .tsl{font-size:14px;color:var(--faint);line-height:1}
+.iconbtn.theme .tcur{opacity:.45}
+.iconbtn.theme .tgo{color:var(--ink)}
+.iconbtn.theme .tcur,.iconbtn.theme .tgo{display:grid;place-items:center}
+.iconbtn.theme[aria-pressed="true"]{background:transparent;color:var(--muted)}
+.iconbtn.theme.swap .tcur{animation:irswapL .38s cubic-bezier(.3,.7,.3,1)}
+.iconbtn.theme.swap .tgo{animation:irswapR .38s cubic-bezier(.3,.7,.3,1)}
+@keyframes irswapL{from{transform:translateX(26px) rotate(-90deg);opacity:1}}
+@keyframes irswapR{from{transform:translateX(-26px) rotate(90deg);opacity:.45}}/* the Dev Update bell (dev-updates.css) in this add-in's tokens; docked it matches the 34px icon buttons */
+:root{--surface-2:var(--surface2);--surface-3:var(--hover);--font:"Segoe UI",system-ui,-apple-system,sans-serif}
+.devupd.du-docked .du-bell{width:34px;height:34px;border-radius:var(--r-sm)}
+.devupd.du-docked .du-bell svg{width:18px;height:18px}
+.devupd.du-docked .du-dot{top:6px;right:7px}
+.devupd.du-docked .du-card,.devupd.du-docked .du-panel{top:42px}
 /* main tabs: one segmented control */
 nav.tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:2px;margin:2px 12px 10px;padding:3px;background:var(--surface2);border-radius:10px}
 nav.tabs button{border:0;background:transparent;padding:6px 6px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:650;min-height:34px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;gap:2px}
@@ -220,6 +243,35 @@ iframe.print{width:100%;height:65vh;border:1px solid var(--line);border-radius:1
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #busy{background:rgba(20,16,12,.65);color:var(--ink)}}
 #busy[hidden]{display:none}
 .demo-ribbon{background:var(--info-soft);color:var(--info);text-align:center;font-size:11.5px;font-weight:650;padding:4px 8px}
+/* the loading screen on open, then "Enter your name" (both as in the IVK Tracker); a long list scrolls */
+.boot{position:fixed;inset:0;z-index:22;display:flex;overflow:auto;background:var(--bg);padding:24px}
+.bootin{margin:auto;width:min(380px,100%);display:flex;flex-direction:column;align-items:center;text-align:center}
+.bootin h1{margin:22px 0 0;font-size:26px;font-weight:700}.bootin>p{margin:6px 0 0;font-size:14px}
+.spinner{width:44px;height:44px;border-radius:50%;border:4px solid var(--surface2);border-top-color:var(--accent);animation:irspin .9s linear infinite}
+@keyframes irspin{to{transform:rotate(360deg)}}
+.steps{list-style:none;width:100%;margin:24px 0 0;padding:0;text-align:left}
+.step{display:grid;grid-template-columns:22px 1fr;gap:12px;align-items:start;padding:8px 0;border-top:1px solid var(--line)}
+.step .k{width:20px;height:20px;border-radius:50%;border:2px solid var(--line2);margin-top:1px;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--accent-ink)}
+.step.done .k{background:var(--accent);border-color:var(--accent)}
+.step.now .k{border-color:var(--ink)}
+.step .t{font-size:14px}
+.step .m{display:block;min-height:17px;font-size:12.5px;color:var(--muted);margin-top:1px}
+.step.next .t{color:var(--faint)}
+.boot.who .bootin{width:min(420px,100%)}
+.whohero{display:flex;flex-direction:column;align-items:center}
+.whohero h1{margin:0}
+.wholist{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:22px}
+.wholist .whob{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:48px;padding:0 16px;font-size:16px;text-align:left}
+.whob .tag{font-size:11.5px;font-weight:650;color:var(--accent);background:var(--accent-soft);border-radius:9px;padding:1px 8px}
+.whonew{width:100%;margin-top:14px;text-align:left}
+details.fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:44px;font-weight:650}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"▸";color:var(--faint);font-weight:400}
+details.fold[open]>summary::after{content:"▾"}
+.whonew .hint{display:block;margin-top:5px;font-size:12.5px;color:var(--muted)}
+.bootin .row{justify-content:flex-end;width:100%;margin-top:12px}
+.whoami{margin-left:auto;display:flex;align-items:baseline;gap:6px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.whoami b{color:var(--ink)}
 /* clinic multi-select dropdown */
 .ms{position:relative;display:inline-block;min-width:0;max-width:100%}
 .ms-btn{display:flex;align-items:center;gap:10px;min-width:220px;max-width:100%;min-height:34px;padding:5px 10px 5px 12px;border:1px solid var(--line2);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;font-weight:650;text-align:left}
@@ -377,6 +429,78 @@ async function saveCfg(){
   await S.store.setDoc('irCfg', S.cfg);
 }
 async function markSent(key){ S.sent[key] = new Date().toISOString(); await S.store.setDoc('irSent', S.sent); }
+// ---------- who's using the panel (the same model as the IVK Tracker) ----------
+// The people list is kept in the workbook's add-in settings (irUsers: [{ name, added }]), so no tab is added. This computer remembers,
+// per workbook, who picked today and who has used it here before (localStorage "irWho:<workbook key>": { day, name, used }).
+// The first open each day asks for a name. Full screen takes the panel's pick, and a switch there is sent back to the panel.
+const W = {
+  key: n => String(n ?? '').trim().toLowerCase(),
+  clean: s => String(s ?? '').trim().replace(/\s+/g, ' ').slice(0, 30).trim(),
+  list(v){ const seen = new Set(), out = []; for (const u of Array.isArray(v) ? v : []){ const name = W.clean(u && typeof u === 'object' ? u.name : u), k = W.key(name); if (!name || seen.has(k)) continue; seen.add(k); out.push({ name, added: String((u && u.added) || '') }); } return out; },
+  // people who've used this computer on this workbook first (newest first), then everyone else A-Z
+  order(users, here){ const H = (here || []).map(W.key), rank = u => { const i = H.indexOf(W.key(u.name)); return i < 0 ? Infinity : i; }; return W.list(users).map(u => Object.assign({}, u, { here: rank(u) !== Infinity })).sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })); },
+  wbKey(s){ let h = 0x811c9dc5; const t = String(s || '').trim().toLowerCase().replace(/[?#].*$/, ''); for (let i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return t ? 'w' + h.toString(36) : ''; },
+  rec(json){ try { const o = JSON.parse(json || '{}'); return { day: String(o.day || ''), name: String(o.name || ''), used: Array.isArray(o.used) ? o.used.map(String).filter(Boolean) : [] }; } catch { return { day: '', name: '', used: [] }; } },
+  pick: (rec, name, day) => ({ day, name, used: [name].concat((rec.used || []).filter(n => W.key(n) !== W.key(name))).slice(0, 20) }),
+};
+const dayIso = () => { const d = today(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const whoKey = () => S.wb ? 'irWho:' + S.wb : '';
+const whoRead = () => { let j = ''; try { j = whoKey() ? localStorage.getItem(whoKey()) || '' : ''; } catch {} return W.rec(j); };
+function workbookKey(){
+  if (S.store.demo) return W.wbKey('demo');
+  if (S.store.remote) return S.wbIn || '';
+  let url = ''; try { url = Office.context.document.url || ''; } catch {}
+  if (url) return W.wbKey(url);
+  let id = S.store.getDoc('irWbId');
+  if (!id){ id = 'id' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); S.store.setDoc('irWbId', id); }
+  return W.wbKey(id);
+}
+// today's pick, while they're still on the workbook's list (full screen: the panel's pick)
+function loadWho(){
+  S.wb = S.wb || workbookKey(); S.users = W.list(S.store.getDoc('irUsers'));
+  const r = whoRead(), n = (S.store.remote && S.whoIn) || (r.day === dayIso() ? r.name : ''), u = n && S.users.find(x => W.key(x.name) === W.key(n));
+  S.who = u ? u.name : '';
+}
+function setWho(name, fromOther){
+  S.who = name || ''; S.picking = false;
+  if (whoKey()) try { localStorage.setItem(whoKey(), JSON.stringify(W.pick(whoRead(), S.who, dayIso()))); } catch {}
+  if (!fromOther && S.store.remote && S.upMsg){ S.whoIn = S.who; S.upMsg({ ev: 'who', name: S.who }); }
+}
+// who saved a note, reclassification or reassignment: the picked name (the email sign-off only on an older save path)
+const savedBy = () => S.who || S.cfg.signoff || '';
+// "Enter your name": this workbook's list only, people who've used this computer here first, nobody picked
+function pickHTML(){
+  const L = W.order(S.users, whoRead().used), cancel = S.picking && S.who;
+  return `<div class="boot who"><div class="bootin"><div class="whohero"><h1>Enter your name</h1>
+    <p class="muted">${L.length ? 'Pick yours below, or add it if you’re new.' : 'Nobody has added their name to this workbook yet. Add yours to start.'}</p></div>
+    ${L.length ? `<div class="wholist" role="group" aria-label="People on this workbook">${L.map(u => `<button class="btn whob" data-act="pickUser" data-v="${esc(u.name)}">${esc(u.name)}${u.here ? '<span class="tag">On this computer</span>' : ''}</button>`).join('')}</div>` : ''}
+    <details class="fold whonew"${L.length ? '' : ' open'}><summary>${L.length ? 'I’m not on the list' : 'Add your name'}</summary>
+      <label class="lbl" for="whoNew">Your name</label><input class="fld" id="whoNew" autocomplete="off" spellcheck="false" maxlength="30"><span class="hint">Usually your first name. Add a last initial if someone here shares it.</span>
+      <div class="row"><button class="btn primary" data-act="addUser">Add me and start</button></div></details>
+    ${cancel ? `<div class="row"><button class="linkbtn" data-act="pickCancel">Stay as ${esc(S.who)}</button></div>` : ''}</div></div>`;
+}
+async function addUser(){
+  const n = W.clean($('#whoNew')?.value); if (!n) return toast('bad', 'Type your name first.');
+  const had = S.users.find(u => W.key(u.name) === W.key(n));
+  if (!had){ const next = W.list(S.store.getDoc('irUsers')).concat({ name: n, added: dayIso() }); await S.store.setDoc('irUsers', next); S.users = W.list(next); }
+  pickUser(had ? had.name : n);
+}
+function pickUser(n){ if (!n) return; setWho(n); render(); toast('ok', `Hi ${esc(n)}.`); }
+async function removeUser(n){
+  const next = W.list(S.store.getDoc('irUsers')).filter(u => W.key(u.name) !== W.key(n)); await S.store.setDoc('irUsers', next); S.users = next;
+  if (W.key(n) === W.key(S.who)) S.who = '';
+  render(); toast('ok', `Removed ${esc(n)} from this workbook's list.`);
+}
+// the loading screen on open: each step ticks as its read finishes
+const BOOT = ['Connecting to the workbook', 'Finding the IR Portal tabs', 'Reading the worklist tab', 'Reading notes and changes'];
+const bootSteps = () => S.mode === 'dialog' ? ['Getting the workbook from the task pane'] : BOOT;
+function bootStep(i, msg){ if (S.booted) return; const B = S.boot || (S.boot = { i: 0, m: [] }); if (i >= bootSteps().length) return; B.m[i] = msg || ''; B.i = i + 1; render(); }
+function bootHTML(){
+  const B = S.boot || { i: 0, m: [] };
+  return `<div class="boot" role="status" aria-live="polite"><div class="bootin"><div class="spinner" aria-hidden="true"></div><h1>IR Portal Tracker</h1><p class="muted">Reading the workbook.</p>
+    <ol class="steps">${bootSteps().map((t, i) => `<li class="step ${B.i > i ? 'done' : B.i === i ? 'now' : 'next'}"><span class="k">${B.i > i ? '✓' : ''}</span><span><span class="t">${t}</span><span class="m">${esc(B.m[i] || '')}</span></span></li>`).join('')}</ol></div></div>`;
+}
+
 const sentOn = key => S.sent[key] ? new Date(S.sent[key]) : null;
 const sentFresh = key => { const d = sentOn(key); return d && days(today(), new Date(d.getFullYear(), d.getMonth(), d.getDate())) < 7; };
 
@@ -696,15 +820,19 @@ async function reload0(quiet){
   if (!quiet) busy(true);
   try {
     if (!S.cfg) loadCfg();
+    if (!S.store.remote) bootStep(0, 'Connected');
     let fresh = null; try { fresh = (await scanSources()).sheets; } catch (e){ console.error(e); }
+    if (!S.store.remote) bootStep(1, fresh ? `${fresh.length} tab${fresh.length === 1 ? '' : 's'}` : '');
     const auto = !S.cfg.sheet || ['auto', 'filtered'].includes(norm(S.cfg.sheet));
     const latest = S.rep && (S.rep.ir.EOD || S.rep.ir.Noon || S.rep.ir.AM);
     const d = await S.store.load(auto ? (latest ? latest.sheet : 'Filtered') : S.cfg.sheet, fresh);
+    bootStep(S.store.remote ? 0 : 2, S.store.remote ? 'Connected' : d.values ? `${d.sheet}: ${Math.max(0, d.values.length - 1)} rows` : 'No worklist tab yet');
     if (S.store.remote) loadCfg(); // full-screen window: use the panel's saved settings
     S.notes = Object.assign({}, S.store.getDoc('irNotes') || {});
     S.reclass = Object.assign({}, S.store.getDoc('irReclass') || {}); S._rcTo = null;
     S.reprov = Object.assign({}, S.store.getDoc('irReprov') || {}); S._pvTo = null;
     try { await mergeOwnTabs(d.sheets || []); } catch (e){ console.error(e); }
+    bootStep(3, 'Notes, reclassifications, provider changes');
     S.sheets = d.sheets || [];
     if (!d.values){ S.loadErr = auto ? 'There\'s no IR Portal export or Filtered tab in this workbook yet.' : `There's no tab named "${S.cfg.sheet}" in this workbook.`; S.rows = []; S.missing = []; }
     else { const p = parse(d.values, d.sheet); S.rows = p.rows; S.missing = p.missing;
@@ -713,10 +841,20 @@ async function reload0(quiet){
     if ((S.cfg.dir || []).length && S.rows.some(r => r.prov && !(S.cfg.providers[r.prov] || {}).dirNote && !(S.cfg.providers[r.prov] || {}).dirName)){ applyDirectory(); try { await saveCfg(); } catch {} }
     S.loadedAt = new Date();
   } catch (e){ S.loadErr = e.message || String(e); }
-  finally { busy(false); render(); }
+  finally { try { loadWho(); } catch (e){ console.error(e); } S.booted = true; busy(false); render(); }
 }
 
 // ---------- views ----------
+// the toolbar, flush right: Settings, Refresh, Full screen (or Exit full screen), light/dark as "sun / moon", then the Dev Update bell.
+// Each hover label says what a press does; light/dark names the mode it switches to, and its two icons swap places on a change.
+const ICON_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></svg>';
+function toolsHTML(){
+  const dark = isDark(), tl = dark ? 'Light mode' : 'Dark mode';
+  const full = S.mode === 'dialog' ? `<button class="iconbtn" data-act="closeFull" data-tip="Exit full screen" aria-label="Exit full screen">${ICON_EXIT}</button>`
+    : S.canFull && S.mode === 'pane' ? `<button class="iconbtn" data-act="full" data-tip="Full screen" aria-label="Full screen">${ICON_FULL}</button>` : '';
+  const theme = `<button class="iconbtn theme${dark ? ' is-dark' : ''}${S.themeSwap ? ' swap' : ''}" data-act="theme" data-tip="${tl}" aria-label="Switch to ${tl.toLowerCase()}" aria-pressed="${dark}">${dark ? `<span class="tcur">${ICON_MOON}</span><span class="tsl">/</span><span class="tgo">${ICON_SUN}</span>` : `<span class="tcur">${ICON_SUN}</span><span class="tsl">/</span><span class="tgo">${ICON_MOON}</span>`}</button>`;
+  return `<div class="tools"><button class="iconbtn" data-act="tab" data-v="set" data-tip="Settings" aria-label="Settings" aria-pressed="${S.tab === 'set'}">${ICON_GEAR}</button><button class="iconbtn" data-act="refresh" data-tip="Refresh" aria-label="Refresh from the workbook">${ICON_REFRESH}</button>${full}${theme}<span class="du-slot"></span></div>`;
+}
 function header(){
   const sig = ctrlRows().filter(r => routeOf(r.desc) === 'provider');
   const sigOpen = [...groupBy(sig, 'prov').keys()].filter(p => !sentFresh(sentKey('p', p))).length;
@@ -727,21 +865,20 @@ function header(){
   S._wbadges = { sig: sigOpen, clinic: clinOpen };
   return `<header class="top">${S.store.demo ? '<div class="demo-ribbon">Demo data: made-up patients and providers. Nothing here touches a workbook.</div>' : ''}
     <div class="bar"><div class="brand"><img class="logo logo-light" src="assets/logo.png" alt="Mindful Health Solutions" width="85" height="28"><img class="logo logo-dark" src="assets/logo-dark.png" alt="Mindful Health Solutions" width="85" height="28"><span class="appname">IR Portal Tracker</span> <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small></div>
-      <button class="iconbtn" data-act="theme" title="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}" aria-label="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}">${isDark() ? ICON_SUN : ICON_MOON}</button>
-      <button class="iconbtn" data-act="refresh" title="Re-read the workbook" aria-label="Refresh">${ICON_REFRESH}</button>
-      <button class="iconbtn" data-act="tab" data-v="set" title="Settings" aria-label="Settings" aria-pressed="${S.tab === 'set'}">${ICON_GEAR}</button>
-      ${S.canFull && S.mode === 'pane' ? `<button class="iconbtn" data-act="full" title="Full screen over the Excel page" aria-label="Full screen">${ICON_FULL}</button>` : ''}
-      ${S.mode === 'dialog' ? '<button class="iconbtn" data-act="closeFull" title="Back to Excel">✕ Close</button>' : ''}</div>
+      ${toolsHTML()}</div>
     <div class="bar wrap" style="padding-top:0"><label for="locSel" class="small muted" style="font-weight:700">Location</label>
       <select class="fld" id="locSel" style="width:auto;min-width:200px;max-width:100%;min-height:34px;padding:4px 10px;font-weight:700">
         <option value="">All locations (${S.rows.filter(inView).length})</option>${locList().map(([f, n]) => `<option value="${esc(f)}" ${f === S.loc ? 'selected' : ''}>${esc(f)} (${n})</option>`).join('')}</select>
-      <label class="chk small" style="margin-left:6px"><input type="checkbox" id="allTypesChk" ${S.allTypes ? 'checked' : ''}> All types (include authorization)</label></div>
+      <label class="chk small" style="margin-left:6px"><input type="checkbox" id="allTypesChk" ${S.allTypes ? 'checked' : ''}> All types (include authorization)</label>
+      ${S.who ? `<span class="whoami"><b>${esc(S.who)}</b><button class="linkbtn" data-act="switchUser">Switch user</button></span>` : ''}</div>
     <nav class="tabs">${tabs.map(([k, l, b]) => `<button data-act="tab" data-v="${k}" ${S.tab === k || (k === 'work' && ['sig', 'clinic'].includes(S.tab)) ? 'aria-current="page"' : ''}>${l}${b}</button>`).join('')}</nav></header>`;
 }
 function locList(){ return [...groupBy(S.rows.filter(inView), 'fac').entries()].map(([f, rs]) => [f, rs.length]).sort((a, b) => byName(a[0], b[0])); }
 function render(){
   if (S.loc && S.rows.length && !S.rows.some(r => r.fac === S.loc)) S.loc = ''; // location no longer on the tab
   if (!S.store) return;
+  if (!S.booted){ $('#app').innerHTML = bootHTML(); return; }
+  if (!S.who || S.picking){ $('#app').innerHTML = pickHTML(); const f = $('#whoNew'); if (f && !(S.users || []).length) f.focus(); return; }
   if (!isAdmin() && S.tab === 'rep') S.tab = 'dash';
   if (!isAdmin() && S.tab === 'clinic') S.tab = 'work';
   const hdr = header(); const inWork = ['work', 'sig', 'clinic'].includes(S.tab);
@@ -978,7 +1115,7 @@ async function saveIncident(id, note, status, opts = {}){
   note = String(note ?? '').trim();
   if (note && status === 'Needs review' && !opts.keepStatus) status = 'Reviewed';
   const flag = opts.flag !== undefined ? !!opts.flag : isFlag(id);
-  S.notes[id] = { note, status, at: new Date().toISOString(), by: S.cfg.signoff || '', ...(flag ? { flag: true } : {}) };
+  S.notes[id] = { note, status, at: new Date().toISOString(), by: savedBy(), ...(flag ? { flag: true } : {}) };
   const all = Object.assign({}, S.store.getDoc('irNotes') || {}, { [id]: S.notes[id] });
   await S.store.setDoc('irNotes', all);
   render();
@@ -1097,7 +1234,7 @@ function catChoices(){
   return [...new Set([...IR_CATS.map(dispCat), dispCat(AUTH_CAT), ...S.rows.map(r => r.desc), ...Object.values(S.reclass).map(r => r.to && dispCat(r.to))].filter(Boolean))].sort(byName);
 }
 async function saveReclass(id, picks){
-  const rows = S.rows.filter(r => r.id === id); const now = new Date().toISOString(), by = S.cfg.signoff || ''; const changed = [];
+  const rows = S.rows.filter(r => r.id === id); const now = new Date().toISOString(), by = savedBy(); const changed = [];
   for (const [base, to] of picks){
     const cur = S.reclass[rcK(id, base)]; const curTo = cur && cur.to ? cur.to : base;
     if (dispCat(to) === dispCat(curTo)) continue;
@@ -1134,7 +1271,7 @@ function provChoices(){
   return [...new Set([...S.rows.flatMap(r => [r.prov, r.pvBase]), ...Object.keys(S.cfg.providers), ...Object.values(S.reprov).map(r => r.to)].filter(p => p && p !== '(No provider)'))].sort(byName);
 }
 async function saveReprov(id, picks){
-  const rows = S.rows.filter(r => r.id === id); const now = new Date().toISOString(), by = S.cfg.signoff || ''; const changed = [];
+  const rows = S.rows.filter(r => r.id === id); const now = new Date().toISOString(), by = savedBy(); const changed = [];
   for (const [base, to] of picks){
     const cur = S.reprov[pvK(id, base)]; const curTo = cur && cur.to ? cur.to : base;
     if (to === curTo) continue;
@@ -1417,6 +1554,8 @@ function setHTML(){
     <div class="card"><h2>Email footer</h2>
       <label class="lbl" for="signoff">Sign-off name</label><input class="fld" id="signoff" data-cfg="signoff" value="${esc(c.signoff)}">
       <label class="lbl" for="disclaimer">Confidentiality disclaimer</label><textarea class="fld" id="disclaimer" data-cfg="disclaimer" style="min-height:110px">${esc(c.disclaimer)}</textarea></div>
+    <div class="card"><h2>People on this workbook</h2><div class="small muted">Picked from on the name screen; notes, reclassifications and reassignments record the name picked. Kept in this workbook's add-in settings, not on a tab.</div>
+      ${(S.users || []).length ? S.users.map(u => `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--line);padding:4px 0"><span>${esc(u.name)}${u.added ? ` <span class="small muted">added ${esc(u.added)}</span>` : ''}</span><button class="linkbtn" data-act="rmUser" data-v="${esc(u.name)}">Remove</button></div>`).join('') : '<div class="small muted" style="margin-top:6px">Nobody yet.</div>'}</div>
     <div class="card"><h2>Move settings</h2><div class="small muted">Settings save inside this workbook and in this browser. If the portal export is replaced with a new file, they carry over automatically in the same browser, or copy them here and paste them into the new one.</div>
       <div class="row" style="margin-top:8px"><button class="btn" data-act="exportCfg">Copy settings</button><button class="btn" data-act="importCfg">Paste settings…</button><button class="btn" data-act="resetSent">Clear "sent" marks</button></div></div>
   </div></div>`;
@@ -1517,11 +1656,16 @@ document.addEventListener('click', async ev => {
   const a = b.dataset.act, v = b.dataset.v;
   const A = {
     tab: () => { if (v !== 'work') S.fromDash = ''; S.tab = v; render(); window.scrollTo(0, 0); if (v === 'rep') scanSources().then(render).catch(e => toast('bad', esc(e.message || e))); },
+    pickUser: () => pickUser(v),
+    addUser: () => addUser(),
+    switchUser: () => { S.picking = true; closeModal(); render(); },
+    pickCancel: () => { S.picking = false; render(); },
+    rmUser: () => removeUser(v),
     buildIR: () => buildIR(v),
     upGo: () => upNext(),
     upSkipPrior: () => { if (S._up){ S._up.askedPrior = true; upRun(); } },
     inc: () => editIncident(b.dataset.id),
-    theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); render(); },
+    theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); S.themeSwap = true; render(); S.themeSwap = false; },
     grpToggle: () => { const g = b.dataset.g; S.open.has(g) ? S.open.delete(g) : S.open.add(g); render(); const t = document.querySelector(`tr.cgrp[data-g="${CSS.escape(g)}"]`); if (t) t.focus({ preventScroll: true }); },
     grpAll: () => { if (v === '1'){ const rows = filtered(); const keys = S.collapse === 'mrn' ? rows.map(r => r.mrn || '(No MRN)') : rows.map(r => r.desc); keys.forEach(k => S.open.add(S.collapse + ':' + k)); } else S.open.clear(); render(); },
     msRemove: () => { const f = b.dataset.f; const facs = msFacs().map(([x]) => x); const cur = msGet('wl'); const list = (cur.mode === 'all' ? facs : cur.list).filter(x => x !== f); msSet('wl', { mode: 'some', list }); render(); },
@@ -1612,7 +1756,7 @@ document.addEventListener('click', async ev => {
   };
   if (A[a]) await A[a]();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.msOpen){ const k = S.msOpen; S.msOpen = null; render(); const t = document.querySelector(`.ms[data-ms="${k}"] .ms-btn`); if (t) t.focus(); return; } if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.srow[data-act="inc"], tr.cgrp')) { e.preventDefault(); e.target.click(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'whoNew'){ e.preventDefault(); addUser(); return; } if (e.key === 'Escape' && S.msOpen){ const k = S.msOpen; S.msOpen = null; render(); const t = document.querySelector(`.ms[data-ms="${k}"] .ms-btn`); if (t) t.focus(); return; } if (e.key === 'Escape' && !$('#modal').hidden) closeModal(); if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.srow[data-act="inc"], tr.cgrp')) { e.preventDefault(); e.target.click(); } });
 document.addEventListener('input', e => {
   if (e.target.id === 'rptNote' && S._rptMake){ S._rptMake(); return; }
   if (e.target.id === 'rnNew' || e.target.id === 'rnEx'){ renameCheck(); return; }
@@ -1974,7 +2118,7 @@ async function applyUpdate(values, srcName){
   const map = Hn.map(h => hnorm(h) && hcol([h], ['status', 'notes', 'note']) < 0 ? hcol(Ho, h) : -1); // old rows land under the new report's headers, whatever the order
   const gone = [...oldIds].filter(id => !newIds.has(id));
   const append = hiO < 0 ? [] : S.rows.filter(r => gone.includes(r.id) && oldVals[r.r]).map(r => map.map(j => j >= 0 ? oldVals[r.r][j] ?? '' : ''));
-  const now = new Date().toISOString(), by = S.cfg.signoff || '';
+  const now = new Date().toISOString(), by = savedBy();
   const res = { cleared: 0, unworked: 0, back: 0, added: 0, kept: 0, notes: 0 };
   const shown = new Set([...S.rows, ...np.rows].filter(inView).map(r => r.id)); // counts match what the Worklist shows
   for (const id of gone){ const was = statusOf(id); if (was !== CLEARED && shown.has(id)){ res.cleared++; if (was === 'Needs review') res.unworked++; } S.notes[id] = Object.assign({ note: '' }, noteRec(id), { status: CLEARED, at: now, by }); }
@@ -2163,14 +2307,14 @@ function prefApply(o){
 }
 function RemoteStore(){
   const pend = new Map(); let docs = {}; let onChanged = null;
-  const rx = makeRx(m => { if (m.rid && pend.has(m.rid)){ const p = pend.get(m.rid); pend.delete(m.rid); m.ok ? p.res(m.res) : p.rej(new Error(m.err)); } else if (m.ev === 'changed' && onChanged) onChanged(); });
+  const rx = makeRx(m => { if (window.DevUpdates && DevUpdates.receive(m)) return; if (m.rid && pend.has(m.rid)){ const p = pend.get(m.rid); pend.delete(m.rid); m.ok ? p.res(m.res) : p.rej(new Error(m.err)); } else if (m.ev === 'changed' && onChanged) onChanged(); });
   Office.context.ui.addHandlerAsync(Office.EventType.DialogParentMessageReceived, a => rx(a.message));
   const up = obj => sendChunks(s => Office.context.ui.messageParent(s), obj);
   const call = (op, args) => new Promise((res, rej) => { const rid = Math.random().toString(36).slice(2); pend.set(rid, { res, rej }); up({ rid, op, args }); setTimeout(() => { if (pend.has(rid)){ pend.delete(rid); rej(new Error('Excel didn\'t answer. Keep the IR Portal Tracker panel open behind this window, then try again.')); } }, 45000); });
-  S.closeFull = () => up({ ev: 'close' });
+  S.closeFull = () => up({ ev: 'close' }); S.upMsg = up;
   return {
     live: true, remote: true,
-    async load(){ const d = await call('load'); docs = d.docs || {}; if (d.prefs && !S._prefsIn){ S._prefsIn = true; prefApply(d.prefs); } return d; },
+    async load(){ const d = await call('load'); docs = d.docs || {}; S.wbIn = d.wb || ''; S.whoIn = d.who || ''; if (d.prefs && !S._prefsIn){ S._prefsIn = true; prefApply(d.prefs); } return d; },
     getDoc: k => docs[k] ?? null,
     async setDoc(k, v){ docs[k] = v; await call('setDoc', [k, v]); },
     sheetsInfo: () => call('sheetsInfo', []), readSheet: n => call('readSheet', [n]), removeSheets: ns => call('removeSheets', [ns]),
@@ -2181,24 +2325,27 @@ function RemoteStore(){
 let DLG = null;
 function openFull(){
   if (DLG) return;
-  const url = location.href.replace(/[?#].*$/, '') + '?mode=dialog';
+  const base = location.href.replace(/[?#].*$/, '') + '?mode=dialog', url = window.DevUpdates ? DevUpdates.dialogUrl(base) : base; // carries the Dev Updates already seen
   Office.context.ui.displayDialogAsync(url, { height: 94, width: 94, displayInIframe: true }, res => { // floats over the Excel page; never a separate window
     if (res.status !== Office.AsyncResultStatus.Succeeded){ toast('bad', 'Couldn\'t open full screen: ' + esc(res.error?.message || '') + (res.error?.code === 12007 ? ' (it\'s already open)' : '')); return; }
     DLG = res.value;
     const reply = obj => { try { sendChunks(s => DLG && DLG.messageChild(s), obj); } catch (e){ console.error(e); } };
+    if (window.DevUpdates) DevUpdates.setSend(m => reply(m));
     const rx = makeRx(async m => {
-      if (m.ev === 'close'){ try { DLG.close(); } catch {} DLG = null; loadCfg(); reload(true); return; }
+      if (window.DevUpdates && DevUpdates.receive(m)) return; // a Dev Update dismissed in full screen
+      if (m.ev === 'close'){ try { DLG.close(); } catch {} DLG = null; if (window.DevUpdates) DevUpdates.setSend(null); loadCfg(); reload(true); return; }
+      if (m.ev === 'who'){ S.users = W.list(S.store.getDoc('irUsers')); setWho(m.name, true); return; } // switched in full screen
       const { rid, op, args } = m;
       try {
         let res;
-        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes'), irReclass: S.store.getDoc('irReclass'), irReprov: S.store.getDoc('irReprov') }; res.prefs = prefSnap(); }
+        if (op === 'load'){ res = await S.store.load(S.cfg.sheet); res.docs = { irCfg: S.store.getDoc('irCfg'), irSent: S.store.getDoc('irSent'), irBuilt: S.store.getDoc('irBuilt'), irNotes: S.store.getDoc('irNotes'), irReclass: S.store.getDoc('irReclass'), irReprov: S.store.getDoc('irReprov'), irUsers: S.store.getDoc('irUsers') }; res.prefs = prefSnap(); res.wb = S.wb; res.who = S.who; }
         else if (['setDoc', 'sheetsInfo', 'readSheet', 'removeSheets', 'writeSheet', 'writeCells', 'upsertRows', 'insertCols', 'refreshPivots', 'renameSheet', 'buildPivots', 'activate'].includes(op)) res = await S.store[op](...(args || []));
         else throw new Error('Unknown request');
         reply({ rid, ok: true, res: res ?? null });
       } catch (e){ reply({ rid, ok: false, err: e.message || String(e) }); }
     });
     DLG.addEventHandler(Office.EventType.DialogMessageReceived, a => rx(a.message));
-    DLG.addEventHandler(Office.EventType.DialogEventReceived, () => { DLG = null; loadCfg(); reload(true); });
+    DLG.addEventHandler(Office.EventType.DialogEventReceived, () => { DLG = null; if (window.DevUpdates) DevUpdates.setSend(null); loadCfg(); reload(true); });
     S.notifyDialog = () => reply({ ev: 'changed' });
   });
 }
@@ -2222,7 +2369,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
   S.mode = /[?&]mode=dialog\b/.test(location.search) ? 'dialog' : demo ? 'demo' : 'pane';
   // re-read after edits in the workbook, but not while someone is typing in the panel or has a dialog open
   const onEdit = () => { if (DLG && S.notifyDialog){ S.notifyDialog(); return; } const ae = document.activeElement; if (!$('#modal').hidden || (ae && ae.matches && ae.matches('#app input, #app textarea, #app select'))){ S._w = setTimeout(onEdit, 2500); return; } reload(true); };
-  const start = store => { S.store = store; reload(true).then(async () => { try { if ((!S.rows.length || S.loadErr) && S.rep && (S.rep.ir.AM || S.rep.er)) S.tab = 'rep'; render(); } catch (e){ console.error(e); } }).then(() => store.watch?.(() => { clearTimeout(S._w); S._w = setTimeout(onEdit, 2000); })); };
+  // the Dev Update bell: full screen passes what it has seen to the panel (and back) over the dialog messages
+  const start = store => { S.store = store; if (window.DevUpdates) DevUpdates.init({ app: 'irportal', send: store.remote ? m => S.upMsg && S.upMsg(m) : null }); reload(true).then(async () => { try { if ((!S.rows.length || S.loadErr) && S.rep && (S.rep.ir.AM || S.rep.er)) S.tab = 'rep'; render(); } catch (e){ console.error(e); } }).then(() => store.watch?.(() => { clearTimeout(S._w); S._w = setTimeout(onEdit, 2000); })); };
   // Office adds _host_Info to the address when it opens the panel, so a slow or failed start inside Excel gets a Reload button, not the install page
   const inOffice = /[?&]_host_Info=/i.test(location.search) || window.top !== window;
   const stuck = msg => `<main style="max-width:640px"><div class="card"><h2>IR Portal Tracker</h2><p>${msg}</p><div class="row"><button class="btn primary" onclick="location.reload()">Reload the panel</button></div><div class="small muted" style="margin-top:8px">Still stuck: close the panel, finish editing any cell (Enter), then open IR Portal Tracker again from the Home tab.</div></div></main>`;
