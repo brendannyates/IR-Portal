@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IR Portal Tracker</title>
 <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-<link rel="stylesheet" href="dev-updates.css?v=2">
-<script src="dev-updates.js?v=2"></script>
+<link rel="stylesheet" href="dev-updates.css?v=3">
+<script src="dev-updates.js?v=3"></script>
 <style>
 :root{
   --bg:#f5f1ea;--surface:#fffdf9;--surface2:#f2ece2;--hover:#f8f3eb;--ink:#29241f;--muted:#6e665c;--faint:#9a9085;--line:#e6ded0;--line2:#d9cfbf;
@@ -63,17 +63,11 @@ header.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg
 .iconbtn.theme.swap .tgo{animation:irswapR .38s cubic-bezier(.3,.7,.3,1)}
 @keyframes irswapL{from{transform:translateX(12px) rotate(-90deg);opacity:1}}
 @keyframes irswapR{from{transform:translateX(-12px) rotate(90deg);opacity:.6}}
-/* half and half: the left half of where you are, the slash, the right half of the mode to press */
-.iconbtn.theme{gap:0;padding:0 9px}.iconbtn.theme svg{width:20px;height:20px}
-.iconbtn.theme .tcur svg{clip-path:inset(0 50% 0 0)}.iconbtn.theme .tgo svg{clip-path:inset(0 0 0 50%)}
-.iconbtn.theme .tcur{margin-right:-8px;opacity:.6}.iconbtn.theme .tgo{margin-left:-8px}
-.iconbtn.theme .tsl{position:relative;z-index:1;padding:0 1px}
-/* the Dev Update bell (dev-updates.css) in this add-in's tokens; docked it matches the 34px icon buttons */
-:root{--surface-2:var(--surface2);--surface-3:var(--hover);--font:"Segoe UI",system-ui,-apple-system,sans-serif}
-.devupd.du-docked .du-bell{width:34px;height:34px;border-radius:var(--r-sm)}
-.devupd.du-docked .du-bell svg{width:18px;height:18px}
-.devupd.du-docked .du-dot{top:6px;right:7px}
-.devupd.du-docked .du-card,.devupd.du-docked .du-panel{top:42px}
+/* both symbols whole, the same 18px as the other toolbar icons */
+.iconbtn.theme svg{width:18px;height:18px}
+/* the Dev Update bell (dev-updates.css) in this add-in's tokens. Full screen only: its home is right of the name, on the header line */
+:root{--surface-2:var(--surface2);--surface-3:var(--hover);--font:"Segoe UI",system-ui,-apple-system,sans-serif;--danger:var(--bad);--danger-soft:var(--bad-soft)}
+.brand .du-home{margin:-10px 0 -10px -2px}
 /* main tabs: one segmented control */
 nav.tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:2px;margin:2px 12px 10px;padding:3px;background:var(--surface2);border-radius:10px}
 nav.tabs button{border:0;background:transparent;padding:6px 6px;border-radius:8px;cursor:pointer;color:var(--muted);font-weight:650;min-height:34px;line-height:1.2;white-space:normal;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;gap:2px}
@@ -852,7 +846,7 @@ async function reload0(quiet){
 
 // ---------- views ----------
 // the toolbar, flush right: Settings, Refresh, Full screen (or Exit full screen), light/dark as "sun / moon". The Dev Update bell
-// floats (dev-updates.js): it starts bottom right and can be dragged anywhere.
+// (dev-updates.js) shows only in full screen, on the .du-home right of the name in header(); the pane has none.
 // Each hover label says what a press does; light/dark names the mode it switches to, and its two icons swap places on a change.
 const ICON_EXIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/></svg>';
 function toolsHTML(){
@@ -871,7 +865,7 @@ function header(){
   const tabs = [['dash', 'Clinic Dashboard', ''], ...(isAdmin() ? [['rep', 'Reports', '']] : []), ['work', 'Worklist', wb ? `<span class="badge">${wb}</span>` : '']];
   S._wbadges = { sig: sigOpen, clinic: clinOpen };
   return `<header class="top">${S.store.demo ? '<div class="demo-ribbon">Demo data: made-up patients and providers. Nothing here touches a workbook.</div>' : ''}
-    <div class="bar"><div class="brand"><img class="logo logo-light" src="assets/logo.png" alt="Mindful Health Solutions" width="85" height="28"><img class="logo logo-dark" src="assets/logo-dark.png" alt="Mindful Health Solutions" width="85" height="28"><span class="appname">IR Portal Tracker</span> <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small></div>
+    <div class="bar"><div class="brand"><img class="logo logo-light" src="assets/logo.png" alt="Mindful Health Solutions" width="85" height="28"><img class="logo logo-dark" src="assets/logo-dark.png" alt="Mindful Health Solutions" width="85" height="28"><span class="appname">IR Portal Tracker</span> <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small>${S.mode === 'dialog' ? '<span class="du-home" aria-hidden="true"></span>' : ''}</div>
       ${toolsHTML()}</div>
     <div class="bar wrap" style="padding-top:0"><label for="locSel" class="small muted" style="font-weight:700">Location</label>
       <select class="fld" id="locSel" style="width:auto;min-width:200px;max-width:100%;min-height:34px;padding:4px 10px;font-weight:700">
@@ -2447,7 +2441,7 @@ function openFull(){
 }
 
 // ---------- update notice: the build stamps APP_BUILD and version.json; an open panel compares them ----------
-const APP_BUILD = '31ae6997f1';
+const APP_BUILD = '2ed3df4af2';
 function checkUpdate(){
   if (APP_BUILD.startsWith('__') || S._upd || Date.now() - (S._updAt || 0) < 60000) return; // unbuilt source, already shown, or checked in the last minute
   S._updAt = Date.now();
