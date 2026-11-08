@@ -12,7 +12,7 @@ Excel add-in over the IR Portal workbook's **Filtered** tab (headers in row 1, d
 - **Carry-over**: every status, note and flag is also saved to the **IR Notes** tab. The EOD email downloads `IR Notes M.D.YY.xlsx` (items still on the report only); **Merge notes file** in the next day's workbook brings them forward by Incident ID, newest save winning, until an item drops off the report. A saved workbook works as the merge file too.
 
 - **Name screen**: after a loading screen, the first open each day asks "Enter your name". The people list is kept in the workbook's add-in settings (`irUsers`), so no tab is added. Today's pick is kept in this browser per workbook, and full screen uses the panel's pick. Notes, reclassifications and reassignments save the picked name in their "Saved by" column. Use **Switch user** next to Location to change it, and Settings › People to remove a name.
-- **Dev Update bell**: `dev-updates.js` / `.css` / `.json` (shared with the IVK Tracker) sit at the end of the toolbar and show what changed. Add an entry to the top of `dev-updates.json` with each release. Copies are kept in `src/` and at the root.
+- **Dev Update bell**: `dev-updates.js` / `.css` / `.json` (shared with the IVK Tracker) show what changed. The bell floats: it starts bottom right and can be dragged anywhere. Add an entry to the top of `dev-updates.json` with each release. Copies are kept in `src/` and at the root.
 
 Columns are found by header name (case, spacing and punctuation ignored), so column order doesn't matter.
 
