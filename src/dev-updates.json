@@ -1,6 +1,15 @@
 {
   "updates": [
     {
+      "id": "2026-11-10-morning-update",
+      "date": "2026-11-10",
+      "bullets": [
+        "New: Morning update at the top of Reports, for Hunter Simmons. Three steps: choose yesterday's IR workbook, choose today's AM export, then Build morning update.",
+        "New: Yesterday's statuses, notes, flags, reclassifications and provider changes carry into today, as the EOD notes file used to.",
+        "New: The morning email compares every clinic with the latest report in yesterday's workbook (EOD, else midday, else AM) and shows the difference."
+      ]
+    },
+    {
       "id": "2026-11-10-all-clinics",
       "date": "2026-11-10",
       "bullets": [

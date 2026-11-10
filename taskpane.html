@@ -148,6 +148,12 @@ label.lbl{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font
 .srow .name{font-weight:700}
 .srow .meta{font-size:12px;color:var(--muted)}
 .srow .line{margin-top:4px}
+.mcard{border:2px solid var(--accent)}
+.mstep{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.mstep:first-of-type{border-top:0}
+.mnum{flex:0 0 26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;border:2px solid var(--accent);color:var(--accent)}
+.mstep.done .mnum{background:var(--accent);color:var(--surface)}
+.mstep .name{font-weight:700;margin-bottom:4px}
 
 /* location blocks */
 .loc{background:var(--surface2);border-radius:var(--radius);padding:10px 12px;margin:8px 0}
@@ -469,6 +475,9 @@ function setWho(name, fromOther){
 }
 // who saved a note, reclassification or reassignment: the picked name (the email sign-off only on an older save path)
 const savedBy = () => S.who || S.cfg.signoff || '';
+// Morning-only senders (Hunter, covering Donavan's daily updates): Reports opens on a Morning update flow, in either view
+const MORNING_USERS = ['hunter simmons'];
+const isMorningUser = () => MORNING_USERS.includes(W.key(S.who));
 // "Enter your name": this workbook's list only, people who've used this computer here first, nobody picked
 function pickHTML(){
   const L = W.order(S.users, whoRead().used), cancel = S.picking && S.who;
@@ -486,7 +495,7 @@ async function addUser(){
   if (!had){ const next = W.list(S.store.getDoc('irUsers')).concat({ name: n, added: dayIso() }); await S.store.setDoc('irUsers', next); S.users = W.list(next); }
   pickUser(had ? had.name : n);
 }
-function pickUser(n){ if (!n) return; setWho(n); render(); toast('ok', `Hi ${esc(n)}.`); }
+function pickUser(n){ if (!n) return; setWho(n); if (isMorningUser()){ S._mornTab = true; S.tab = 'rep'; scanSources().then(render).catch(() => {}); } render(); toast('ok', `Hi ${esc(n)}.`); }
 async function removeUser(n){
   const next = W.list(S.store.getDoc('irUsers')).filter(u => W.key(u.name) !== W.key(n)); await S.store.setDoc('irUsers', next); S.users = next;
   if (W.key(n) === W.key(S.who)) S.who = '';
@@ -848,7 +857,7 @@ async function reload0(quiet){
     if ((S.cfg.dir || []).length && S.rows.some(r => r.prov && !(S.cfg.providers[r.prov] || {}).dirNote && !(S.cfg.providers[r.prov] || {}).dirName)){ applyDirectory(); try { await saveCfg(); } catch {} }
     S.loadedAt = new Date();
   } catch (e){ S.loadErr = e.message || String(e); }
-  finally { try { loadWho(); } catch (e){ console.error(e); } S.booted = true; busy(false); render(); }
+  finally { try { loadWho(); } catch (e){ console.error(e); } if (!S._mornTab && isMorningUser()){ S._mornTab = true; S.tab = 'rep'; } S.booted = true; busy(false); render(); }
 }
 
 // ---------- views ----------
@@ -869,7 +878,7 @@ function header(){
   const clin = ctrlRows().filter(r => routeOf(r.desc) === 'clinic');
   const clinOpen = [...groupBy(clin, 'fac').keys()].filter(f => !sentFresh('c:' + f)).length;
   const wb = sigOpen + (isAdmin() ? clinOpen : 0);
-  const tabs = [['dash', 'Clinic Dashboard', ''], ...(isAdmin() ? [['rep', 'Reports', '']] : []), ['work', 'Worklist', wb ? `<span class="badge">${wb}</span>` : '']];
+  const tabs = [['dash', 'Clinic Dashboard', ''], ...(isAdmin() || isMorningUser() ? [['rep', 'Reports', '']] : []), ['work', 'Worklist', wb ? `<span class="badge">${wb}</span>` : '']];
   S._wbadges = { sig: sigOpen, clinic: clinOpen };
   return `<header class="top">${S.store.demo ? '<div class="demo-ribbon">Demo data: made-up patients and providers. Nothing here touches a workbook.</div>' : ''}
     <div class="bar"><div class="brand"><img class="logo logo-light" src="assets/logo.png" alt="Mindful Health Solutions" width="85" height="28"><img class="logo logo-dark" src="assets/logo-dark.png" alt="Mindful Health Solutions" width="85" height="28"><span class="appname">IR Portal Tracker</span> <small>${S.sheetName ? esc(S.sheetName) + ' tab' : ''}${S.loadedAt ? ' · read ' + S.loadedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</small>${S.mode === 'dialog' ? '<span class="du-home" aria-hidden="true"></span>' : ''}</div>
@@ -887,7 +896,7 @@ function render(){
   if (!S.store) return;
   if (!S.booted){ $('#app').innerHTML = bootHTML(); return; }
   if (!S.who || S.picking){ $('#app').innerHTML = pickHTML(); const f = $('#whoNew'); if (f && !(S.users || []).length) f.focus(); return; }
-  if (!isAdmin() && S.tab === 'rep') S.tab = 'dash';
+  if (!isAdmin() && !isMorningUser() && S.tab === 'rep') S.tab = 'dash';
   if (!isAdmin() && S.tab === 'clinic') S.tab = 'work';
   const hdr = header(); const inWork = ['work', 'sig', 'clinic'].includes(S.tab);
   const wsub = inWork ? `<div class="subnav noprint">${[['work', 'Items'], ['sig', 'Signature reminders'], ...(isAdmin() ? [['clinic', 'Clinic routing']] : [])].map(([k, l]) => `<button data-act="tab" data-v="${k}" aria-pressed="${S.tab === k}">${l}${S._wbadges && S._wbadges[k] ? ` <span class="badge">${S._wbadges[k]}</span>` : ''}</button>`).join('')}</div>` : '';
@@ -1672,6 +1681,8 @@ document.addEventListener('click', async ev => {
     rmUser: () => removeUser(v),
     buildIR: () => buildIR(v),
     upGo: () => upNext(),
+    mSkipPrior: () => { S._mor = Object.assign(S._mor || {}, { prior: null, base: null, skip: true }); render(); },
+    mBuild: () => morningBuild(), mRestart: () => { S._mor = {}; render(); },
     upSkipPrior: () => { if (S._up){ S._up.askedPrior = true; upRun(); } },
     inc: () => editIncident(b.dataset.id),
     theme: () => { try { localStorage.setItem('irTheme', isDark() ? 'light' : 'dark'); } catch {} applyTheme(); S.themeSwap = true; render(); S.themeSwap = false; },
@@ -1784,6 +1795,8 @@ document.addEventListener('change', async e => {
   if (t.dataset.mergenotes){ const f = t.files && t.files[0]; t.value = ''; if (f) mergeNotesFile(f); return; }
   if (t.dataset.plupload){ const f = t.files && t.files[0]; t.value = ''; if (f) plUpload(f); return; }
   if (t.dataset.upload){ const f = t.files && t.files[0]; t.value = ''; if (f) startUpload(t.dataset.upload, f); return; }
+  if (t.dataset.mprior){ const f = t.files && t.files[0]; t.value = ''; if (f) morningPrior(f); return; }
+  if (t.dataset.mexport){ const f = t.files && t.files[0]; t.value = ''; if (f){ S._mor = Object.assign(S._mor || {}, { exp: f }); render(); } return; }
   if (t.dataset.amprior){ const f = t.files && t.files[0]; t.value = ''; if (f && S._up){ S._up.prior = f; S._up.askedPrior = true; upRun(); } return; }
   if (t.id === 'upSel'){ S.upPick = t.value; render(); return; }
   if (t.dataset.fk !== undefined){ const a = focusKw().map(x => Object.assign({}, x)); a[+t.dataset.fk][t.dataset.k] = t.value.trim(); S.cfg.focusKw = a; await saveCfg(); toast('ok', 'Saved.'); return; }
@@ -1966,7 +1979,7 @@ function chg(now, before){
 // compact email tables, side by side: totals by description (left) and one row per clinic (right).
 // Every cell sets an exact line height so Outlook doesn't pad pasted rows.
 const shortCat = c => { const t = String(c).replace(/^(ER|IR)\s*\/\s*HIM\s*\/\s*NB\s*\/\s*/i, '').replace(/\s*\/\s*/g, ' / ').trim(); return t.length > 30 ? t.slice(0, 28).trim() + '…' : t; };
-function pivotTables(cur, base){
+function pivotTables(cur, base, L = ['AM', 'EOD']){ // L: the two compared columns, older first
   const cmp = !!base; const g = (m, k) => (m && m.get(k)) || 0;
   const F = 'font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:12px;color:#222;line-height:15px;mso-line-height-rule:exactly';
   const TB = `border-collapse:collapse;${F}`;
@@ -1980,8 +1993,8 @@ function pivotTables(cur, base){
   const dt = (now, before) => { const d = now - before; return d ? (d > 0 ? '▲' : '▼') + Math.abs(d) : '–'; };
   // 1) by description
   const descs = [...new Set([...cur.byDesc.keys(), ...(cmp ? base.byDesc.keys() : [])])].sort((a, b) => g(cur.byDesc, b) - g(cur.byDesc, a) || byName(a, b));
-  let h1 = `<table cellpadding="0" cellspacing="0" style="${TB}"><tr>${cell('th', H, 'Description')}${cmp ? cell('th', HR, 'AM') + cell('th', HR, 'EOD') + cell('th', HR, 'Diff') : cell('th', HR, 'Items')}</tr>`;
-  let t1 = cmp ? 'Description\tAM\tEOD\tDifference\n' : 'Description\tItems\n';
+  let h1 = `<table cellpadding="0" cellspacing="0" style="${TB}"><tr>${cell('th', H, 'Description')}${cmp ? cell('th', HR, esc(L[0])) + cell('th', HR, esc(L[1])) + cell('th', HR, 'Diff') : cell('th', HR, 'Items')}</tr>`;
+  let t1 = cmp ? `Description\t${L[0]}\t${L[1]}\tDifference\n` : 'Description\tItems\n';
   for (const d of descs){ const n = g(cur.byDesc, d), b = cmp ? g(base.byDesc, d) : 0; h1 += `<tr>${cell('td', D, esc(shortCat(d)))}${cmp ? cell('td', DR, b) + cell('td', DR, n) + cell('td', DR, delta(n, b)) : cell('td', DR, n)}</tr>`; t1 += `${shortCat(d)}\t${cmp ? b + '\t' + n + '\t' + dt(n, b) : n}\n`; }
   h1 += `<tr>${cell('td', T, 'Total')}${cmp ? cell('td', TR, base.total) + cell('td', TR, cur.total) + cell('td', TR, delta(cur.total, base.total)) : cell('td', TR, cur.total)}</tr></table>`;
   t1 += `Total\t${cmp ? base.total + '\t' + cur.total + '\t' + dt(cur.total, base.total) : cur.total}`;
@@ -1990,8 +2003,8 @@ function pivotTables(cur, base){
   const tot = (c, l) => c && c.byLoc.get(l) ? [...c.byLoc.get(l).values()].reduce((a, b) => a + b, 0) : 0;
   const locs = [...new Set([...cur.byLoc.keys(), ...(cmp ? base.byLoc.keys() : [])])].sort((a, b) => tot(cur, b) - tot(cur, a) || tot(base, b) - tot(base, a) || byName(a, b));
   const hd = d => esc(shortCat(d)).replace(/^Missing /, 'Missing<br>').replace(/^Incomplete /, 'Incomplete<br>');
-  let h2 = `<table cellpadding="0" cellspacing="0" style="${TB}"><tr>${cell('th', H + ';vertical-align:bottom', 'Clinic')}${top.map(d => cell('th', HR + ';vertical-align:bottom', hd(d))).join('')}${cell('th', HR + ';vertical-align:bottom', 'Other')}${cmp ? cell('th', HR + ';vertical-align:bottom', 'AM') + cell('th', HR + ';vertical-align:bottom', 'EOD') + cell('th', HR + ';vertical-align:bottom', 'Diff') : cell('th', HR + ';vertical-align:bottom', 'Total')}</tr>`;
-  let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? 'AM\tEOD\tDifference' : 'Total'}\n`;
+  let h2 = `<table cellpadding="0" cellspacing="0" style="${TB}"><tr>${cell('th', H + ';vertical-align:bottom', 'Clinic')}${top.map(d => cell('th', HR + ';vertical-align:bottom', hd(d))).join('')}${cell('th', HR + ';vertical-align:bottom', 'Other')}${cmp ? cell('th', HR + ';vertical-align:bottom', esc(L[0])) + cell('th', HR + ';vertical-align:bottom', esc(L[1])) + cell('th', HR + ';vertical-align:bottom', 'Diff') : cell('th', HR + ';vertical-align:bottom', 'Total')}</tr>`;
+  let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? `${L[0]}\t${L[1]}\tDifference` : 'Total'}\n`;
   for (const l of locs){
     const cm = cur.byLoc.get(l), bm = cmp ? base.byLoc.get(l) : null;
     const z = !tot(cur, l) && !tot(base, l); // clinic with nothing counted (e.g. only Authorization Missing): 0 in every column, not dots
@@ -2012,11 +2025,13 @@ async function showIrEmail(part){
   const P = partOf(part); busy(true, 'Drafting the email…');
   try {
     const cur = irCounts((await irData(part)).rows);
-    const base = part === 'EOD' && S.rep.ir.AM ? irCounts((await irData('AM')).rows) : null;
+    const prior = part === 'AM' ? S.store.getDoc('irPrior') : null; // the previous report, chosen in the Morning update
+    const base = part === 'EOD' && S.rep.ir.AM ? irCounts((await irData('AM')).rows) : prior ? baseCounts(prior) : null;
     busy(false);
-    const t = pivotTables(cur, base);
-    const sum = base ? `<p style="margin:0 0 6px">${cur.total} controllable items open at end of day, ${cur.total === base.total ? 'unchanged from' : cur.total < base.total ? (base.total - cur.total) + ' fewer than' : (cur.total - base.total) + ' more than'} this morning (${base.total}).</p>` : '';
-    const sumT = base ? `${cur.total} controllable items open at end of day vs ${base.total} this morning.\n\n` : '';
+    const t = pivotTables(cur, base, prior && base ? [baseLabel(prior), 'Today'] : undefined);
+    const when = part === 'EOD' ? 'at end of day' : 'this morning', vs = prior && part === 'AM' ? `the ${baseLabel(prior)} report` : 'this morning';
+    const sum = base ? `<p style="margin:0 0 6px">${cur.total} controllable items open ${when}, ${cur.total === base.total ? 'unchanged from' : cur.total < base.total ? (base.total - cur.total) + ' fewer than' : (cur.total - base.total) + ' more than'} ${esc(vs)} (${base.total}).</p>` : '';
+    const sumT = base ? `${cur.total} controllable items open ${when} vs ${base.total} on ${vs}.\n\n` : '';
     rptEmail({ who: P.line.replace(':', ''), notesFile: part === 'EOD', subject: `${S.cfg.rptSubject || 'IR Portal'} ${subjDate(today())}`, body: n => wrap(`<p style="margin:0 0 6px">${esc(P.line)}</p>${n ? `<p style="margin:0 0 8px">${esc(n).replace(/\n/g, '<br>')}</p>` : ''}${sum}${t.html}`), text: n => `${P.line}\n\n${n ? n + '\n\n' : ''}${sumT}${t.text}` });
   } catch (e){ busy(false); toast('bad', 'Couldn\'t draft the email: ' + esc(e.message || e)); console.error(e); }
 }
@@ -2204,7 +2219,7 @@ async function upRun(){
   await S.store.setDoc('irUploads', Object.assign({}, S.store.getDoc('irUploads') || {}, { [U.k]: { name: U.file.name, fileDay: dayOf(U.file.lastModified).toISOString(), at: new Date().toISOString() } }));
   S.upPick = null; render();
 }
-async function uploadPart(part, file, prior){
+async function uploadPart(part, file, prior, opts = {}){
   busy(true, `Reading ${file.name}…`);
   try {
     const values = await readExport(file);
@@ -2215,7 +2230,7 @@ async function uploadPart(part, file, prior){
     await S.store.writeSheet(rawName, values, { col: 0, dateCols: dateCols(values[findHeader(values, IRH)]) });
     if (S.irCache) delete S.irCache[part];
     let merged = null;
-    if (prior){ busy(true, `Carrying notes over from ${prior.name}…`); merged = await mergeNotes(prior, new Set(np.rows.map(r => r.id).filter(Boolean))); }
+    if (prior){ busy(true, `Carrying notes over from ${prior.name}…`); try { merged = await mergeNotes(prior, new Set(np.rows.map(r => r.id).filter(Boolean))); } catch (e){ if (!opts.soft) throw e; console.warn(e); merged = { notes: 0, rc: 0, pv: 0, gone: 0, newerHere: 0 }; } }
     const ids = Object.keys(S.notes); if (ids.length){ busy(true, 'Carrying notes over…'); try { await writeNotes(ids, [rawName]); } catch (e){ console.error(e); } }
     await scanSources(); busy(false);
     await buildIR(part);
@@ -2249,6 +2264,73 @@ function uploadCard(R){
     ${old ? `<div class="msg warn" style="margin-top:8px">This ${esc(u.label.toLowerCase())} is from ${esc(dayLabel(dayOf(rec.fileDay)))}, not today. ${OLD_FILE}</div>` : ''}</div>`;
 }
 
+// ----- Morning update (morning-only senders): yesterday's workbook + today's AM export -> carry-over, build, email vs the day before -----
+// The numbers to compare with are the latest report in yesterday's workbook: EOD, else Noon, else AM. Its Filtered tab is used when
+// there is one (categories as sent, reclassifications included); otherwise its raw tab is classified the same way as today's.
+async function readPriorBase(file){
+  await loadXLSX();
+  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
+  const sheet = n => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' });
+  const ok = v => findHeader(v, IRH) >= 0;
+  const rawOf = P => wb.SheetNames.find(n => n === P.raw || (P.k === 'Noon' ? isMidName(n) : P.k === 'EOD' ? isEodName(n) : /^main sheet$/i.test(n)));
+  for (const P of [...PARTS].reverse()){
+    if (wb.SheetNames.includes(P.filtered)){ const v = sheet(P.filtered); if (ok(v)) return baseFrom(v, true, P, file); }
+    const raw = rawOf(P); if (raw){ const v = sheet(raw); if (ok(v)) return baseFrom(v, false, P, file); }
+  }
+  const any = wb.SheetNames.find(n => !/filtered|pivot/i.test(n) && ![...OWN_TABS, UPD].includes(n) && ok(sheet(n))); // an export tab with another name counts as AM
+  return any ? baseFrom(sheet(any), false, partOf('AM'), file) : null;
+}
+function baseFrom(v, filtered, P, file){
+  const hi = findHeader(v, IRH), H = v[hi], iD = hcol(H, COLS.desc), iF = hcol(H, COLS.fac); const rows = [];
+  for (let r = hi + 1; r < v.length; r++){
+    const x = v[r]; if (!x || !x.some(c => c !== '' && c !== null)) continue;
+    let c; if (filtered){ const cat = dispCat(String(x[iD] ?? '').trim()); c = { ctrl: !!cat && isCtrl(cat), cat }; } else { c = classifyIR(x[iD]); if (c.outlier) c = { ctrl: false }; }
+    rows.push({ fac: normLoc(x[iF]), c });
+  }
+  const k = irCounts(rows);
+  return { name: file.name, part: P.k, day: dayOf(file.lastModified).toISOString(), total: k.total, desc: [...k.byDesc], loc: [...k.byLoc].map(([f, m]) => [f, [...m]]) };
+}
+const baseCounts = b => b && { byDesc: new Map(b.desc), byLoc: new Map(b.loc.map(([f, m]) => [f, new Map(m)])), total: b.total };
+const baseLabel = b => { const d = new Date(b.day); return `${d.getMonth() + 1}/${d.getDate()} ${partOf(b.part).label}`; };
+const fmtDots = d => `${d.getMonth() + 1}.${d.getDate()}`;
+async function morningPrior(file){
+  busy(true, `Reading ${file.name}…`);
+  try { const base = await readPriorBase(file); S._mor = Object.assign(S._mor || {}, { prior: file, base, skip: false }); }
+  catch (e){ toast('bad', 'Couldn\'t read that workbook: ' + esc(e.message || e)); console.error(e); }
+  busy(false); render();
+}
+async function morningBuild(){
+  const M = S._mor; if (!M || !M.exp || !(M.prior || M.skip)) return;
+  await S.store.setDoc('irPrior', M.skip ? null : M.base || null);
+  const ok = await uploadPart('AM', M.exp, M.skip ? null : M.prior, { soft: true });
+  if (!ok) return;
+  await S.store.setDoc('irUploads', Object.assign({}, S.store.getDoc('irUploads') || {}, { AM: { name: M.exp.name, fileDay: dayOf(M.exp.lastModified).toISOString(), at: new Date().toISOString() } }));
+  S._mor = null; render();
+}
+function morningCard(R){
+  const M = S._mor || {}, prior = S.store.getDoc('irPrior'), built = (S.store.getDoc('irBuilt') || {}).AM, rec = (S.store.getDoc('irUploads') || {}).AM;
+  const doneToday = !S._mor && built && isToday(built) && R.ir.AM && R.has(partOf('AM').filtered);
+  const step = (n, done, title, body) => `<div class="mstep${done ? ' done' : ''}"><span class="mnum" aria-hidden="true">${done ? '✓' : n}</span><div class="grow"><div class="name">${title}</div>${body}</div></div>`;
+  const pick = (attr, label, primary) => `<label class="btn sm${primary ? ' primary' : ''}" style="display:inline-flex;align-items:center">${label}<input type="file" ${attr}="1" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>`;
+  if (doneToday) return `<div class="card mcard"><h2>Morning update<span class="sp"></span><span class="pill ok">Built ${new Date(built).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span></h2>
+    <div class="small">${rec ? `From ${esc(rec.name)}. ` : ''}${prior ? `Notes and reclassifications carried over from ${esc(prior.name)}. The email compares with its ${esc(baseLabel(prior))} numbers (${prior.total} items).` : 'No previous report was chosen, so the email has no comparison.'}</div>
+    <div class="row" style="margin-top:10px"><button class="btn sm primary" data-act="irEmail" data-v="AM">Open the email again</button><button class="btn sm" data-act="mRestart">Start over with new files</button></div></div>`;
+  const s1 = M.prior ? `<div class="small"><b>${esc(M.prior.name)}</b>${isToday(M.prior.lastModified) ? ' <span class="warnText">(saved today: make sure it\'s the previous day\'s file)</span>' : ''}</div>
+      <div class="small muted">${M.base ? `Notes, statuses and reclassifications carry over. The email compares with its <b>${esc(baseLabel(M.base))}</b> numbers (${M.base.total} controllable items), the latest report in that file.` : 'No IR report tabs found in it, so there\'s nothing to compare with. Its notes still carry over.'}</div>
+      <div class="row" style="margin-top:6px">${pick('data-mprior', 'Choose a different file…')}</div>`
+    : M.skip ? `<div class="small muted">Skipped: nothing carries over and the email has no comparison.</div><div class="row" style="margin-top:6px">${pick('data-mprior', 'Choose yesterday\'s workbook…', true)}</div>`
+    : `<div class="small muted" style="margin-bottom:6px">Yesterday's IR workbook from OneDrive / SharePoint (for example <i>${esc(fmtDots(new Date(today().getTime() - 864e5)))} IRs.xlsx</i>). Its notes and reclassifications carry into today, and its latest numbers (EOD, else midday, else AM) are what today's email compares with.</div>
+      <div class="row">${pick('data-mprior', 'Choose yesterday\'s workbook…', true)}<button class="linkbtn" data-act="mSkipPrior">No previous file</button></div>`;
+  const s2 = M.exp ? `<div class="small"><b>${esc(M.exp.name)}</b></div>${isToday(M.exp.lastModified) ? '' : `<div class="msg warn" style="margin-top:6px">${esc(M.exp.name)} is dated ${esc(dayLabel(dayOf(M.exp.lastModified)))}. ${OLD_FILE}</div>`}<div class="row" style="margin-top:6px">${pick('data-mexport', 'Choose a different file…')}</div>`
+    : `<div class="small muted" style="margin-bottom:6px">The IR Portal export you downloaded this morning.</div><div class="row">${pick('data-mexport', 'Choose today\'s AM export…', !!(M.prior || M.skip))}</div>`;
+  const ready = !!(M.exp && (M.prior || M.skip));
+  return `<div class="card mcard"><h2>Morning update<span class="sp"></span><span class="small muted">three steps</span></h2>
+    ${step(1, !!(M.prior || M.skip), 'Previous report', s1)}
+    ${step(2, !!M.exp, 'Today\'s AM export', s2)}
+    ${step(3, false, 'Build and email', `<div class="small muted" style="margin-bottom:6px">Carries the notes over, writes the AM tabs and pivot, then opens the email${M.base && !M.skip ? ` with each clinic's change since ${esc(baseLabel(M.base))}` : ''}.</div><button class="btn primary" data-act="mBuild" ${ready ? '' : 'disabled'}>Build morning update</button>`)}
+  </div>`;
+}
+
 // ----- view -----
 function repHTML(){
   const R = S.rep;
@@ -2263,7 +2345,8 @@ function repHTML(){
 </div>`;
   };
   const dec = Object.entries(S.cfg.irDecide || {});
-  return `<div class="row noprint" style="margin-bottom:8px"><span class="grow"></span>${startTab() === 'rep' ? '<span class="small muted">Reports opens first on this computer.</span> <button class="linkbtn" data-act="setStart" data-v="dash">Open Clinic Dashboard first instead</button>' : '<button class="btn sm" data-act="setStart" data-v="rep">Make Reports my default view</button>'}</div>
+  return `${isMorningUser() ? '' : `<div class="row noprint" style="margin-bottom:8px"><span class="grow"></span>${startTab() === 'rep' ? '<span class="small muted">Reports opens first on this computer.</span> <button class="linkbtn" data-act="setStart" data-v="dash">Open Clinic Dashboard first instead</button>' : '<button class="btn sm" data-act="setStart" data-v="rep">Make Reports my default view</button>'}</div>`}
+    ${isMorningUser() ? `${morningCard(R)}<details class="fold card"><summary>Midday, end of day and weekly ER</summary>` : ''}
     ${uploadCard(R)}
     <div class="card"><h2>Daily IR Portal update<span class="sp"></span><span class="small muted">one tab per day part</span></h2>
       ${PARTS.map(partRow).join('')}
@@ -2279,7 +2362,8 @@ function repHTML(){
       <div class="small">Not controllable: every <b>ER/HIM/NB/Authorization…</b> item. Controllable, shortened to: ${IR_CATS.map(c => `<button class="pill" style="margin:2px;cursor:pointer" data-act="renameCat" data-c="${esc(dispCat(c))}" title="Rename">${esc(dispCat(c))} ✎</button>`).join('')}</div>
       ${Object.keys(S.cfg.rename || {}).length ? `<h3>Renamed</h3><table class="set"><tbody>${Object.entries(S.cfg.rename).map(([a, b]) => `<tr><td>${esc(a)}</td><td>→ ${esc(b)}</td><td><button class="linkbtn" data-act="unrename" data-k="${esc(a)}">Undo</button></td></tr>`).join('')}</tbody></table>` : ''}
       <h3>Your decisions on other descriptions</h3>
-      ${dec.length ? `<table class="set"><tbody>${dec.map(([k, d]) => `<tr><td style="word-break:break-word">${esc(k)}</td><td>${d.act === 'exclude' ? 'Not controllable' : d.act === 'map' ? 'Counts as ' + esc(d.cat) : 'Own line'}</td><td><button class="linkbtn" data-act="ocForget" data-k="${esc(k)}">Forget</button></td></tr>`).join('')}</tbody></table>` : '<div class="small muted">None yet. You\'ll be asked the first time a new description shows up.</div>'}</div>`;
+      ${dec.length ? `<table class="set"><tbody>${dec.map(([k, d]) => `<tr><td style="word-break:break-word">${esc(k)}</td><td>${d.act === 'exclude' ? 'Not controllable' : d.act === 'map' ? 'Counts as ' + esc(d.cat) : 'Own line'}</td><td><button class="linkbtn" data-act="ocForget" data-k="${esc(k)}">Forget</button></td></tr>`).join('')}</tbody></table>` : '<div class="small muted">None yet. You\'ll be asked the first time a new description shows up.</div>'}</div>
+    ${isMorningUser() ? '</details>' : ''}`;
 }
 
 // ---------- install page / manifest ----------
@@ -2404,7 +2488,7 @@ function prefApply(o){
   if (g('irAll') !== null) S.allTypes = g('irAll') === '1';
   if (g('irLoc') !== null) S.loc = g('irLoc');
   ROLE_IN = g('irRole'); THEME_IN = g('irTheme'); applyTheme();
-  if (!isAdmin() && ['rep', 'clinic'].includes(S.tab)) S.tab = 'dash'; else if (S.tab === 'dash' && isAdmin() && g('irStart') === 'rep') S.tab = 'rep';
+  if (!isAdmin() && ['rep', 'clinic'].includes(S.tab) && !(S.tab === 'rep' && isMorningUser())) S.tab = 'dash'; else if (S.tab === 'dash' && isAdmin() && g('irStart') === 'rep') S.tab = 'rep';
 }
 function RemoteStore(){
   const pend = new Map(); let docs = {}; let onChanged = null;
@@ -2452,7 +2536,7 @@ function openFull(){
 }
 
 // ---------- update notice: the build stamps APP_BUILD and version.json; an open panel compares them ----------
-const APP_BUILD = '7546eed6c6';
+const APP_BUILD = '165fe02141';
 function checkUpdate(){
   if (APP_BUILD.startsWith('__') || S._upd || Date.now() - (S._updAt || 0) < 60000) return; // unbuilt source, already shown, or checked in the last minute
   S._updAt = Date.now();
