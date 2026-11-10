@@ -568,7 +568,7 @@ const wlHas = f => !wlOn() || S.wl.list.includes(f);
 const scope = () => S.loc ? S.rows.filter(r => r.fac === S.loc) : wlOn() ? S.rows.filter(r => S.wl.list.includes(r.fac)) : S.rows; // header location, or the Worklist clinic picker
 function wlLabel(){ if (S.loc) return S.loc; if (!wlOn()) return 'All locations'; const l = S.wl.list; return !l.length ? 'No clinics' : l.length <= 3 ? l.join(', ') : `${l.length} clinics`; }
 // multi-select clinic dropdown. k = 'wl' (Worklist, last selection) or 'def' (Settings default)
-const msFacs = () => [...groupBy(S.rows.filter(inView), 'fac').entries()].sort((a, b) => byName(a[0], b[0]));
+const msFacs = () => [...groupBy(S.rows, 'fac').entries()].map(([f, rs]) => [f, rs.filter(inView)]).sort((a, b) => byName(a[0], b[0])); // every clinic on the tab, even with 0 items in view
 const msGet = k => k === 'def' ? wlDefault() : (S.wl || { mode: 'all' });
 function msSet(k, v){
   if (k === 'def'){ try { localStorage.setItem('irWlDefault', JSON.stringify(v)); } catch {} }
@@ -874,7 +874,7 @@ function header(){
       ${S.who ? `<span class="whoami"><b>${esc(S.who)}</b><button class="linkbtn" data-act="switchUser">Switch user</button></span>` : ''}</div>
     <nav class="tabs">${tabs.map(([k, l, b]) => `<button data-act="tab" data-v="${k}" ${S.tab === k || (k === 'work' && ['sig', 'clinic'].includes(S.tab)) ? 'aria-current="page"' : ''}>${l}${b}</button>`).join('')}</nav></header>`;
 }
-function locList(){ return [...groupBy(S.rows.filter(inView), 'fac').entries()].map(([f, rs]) => [f, rs.length]).sort((a, b) => byName(a[0], b[0])); }
+function locList(){ return [...groupBy(S.rows, 'fac').entries()].map(([f, rs]) => [f, rs.filter(inView).length]).sort((a, b) => byName(a[0], b[0])); } // a clinic with only non-controllable items shows as (0)
 function render(){
   if (S.loc && S.rows.length && !S.rows.some(r => r.fac === S.loc)) S.loc = ''; // location no longer on the tab
   if (!S.store) return;
@@ -1904,7 +1904,7 @@ async function resolveOutliers(data){
 }
 function irCounts(rows){
   const byDesc = new Map(), byLoc = new Map();
-  for (const r of rows){ if (!r.c.ctrl) continue; byDesc.set(r.c.cat, (byDesc.get(r.c.cat) || 0) + 1); const m = byLoc.get(r.fac) || new Map(); m.set(r.c.cat, (m.get(r.c.cat) || 0) + 1); byLoc.set(r.fac, m); }
+  for (const r of rows){ if (!byLoc.has(r.fac)) byLoc.set(r.fac, new Map()); if (!r.c.ctrl) continue; byDesc.set(r.c.cat, (byDesc.get(r.c.cat) || 0) + 1); const m = byLoc.get(r.fac) || new Map(); m.set(r.c.cat, (m.get(r.c.cat) || 0) + 1); byLoc.set(r.fac, m); }
   return { byDesc, byLoc, total: [...byDesc.values()].reduce((a, b) => a + b, 0) };
 }
 const dateCols = header => header.map((h, i) => /^(dob|dos|due date|entry date|entrydt|last activity date|date.*)$/i.test(String(h).trim()) ? i : -1).filter(i => i >= 0);
@@ -2441,7 +2441,7 @@ function openFull(){
 }
 
 // ---------- update notice: the build stamps APP_BUILD and version.json; an open panel compares them ----------
-const APP_BUILD = '2ed3df4af2';
+const APP_BUILD = '448bfd24c4';
 function checkUpdate(){
   if (APP_BUILD.startsWith('__') || S._upd || Date.now() - (S._updAt || 0) < 60000) return; // unbuilt source, already shown, or checked in the last minute
   S._updAt = Date.now();

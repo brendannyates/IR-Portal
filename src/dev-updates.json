@@ -1,6 +1,13 @@
 {
   "updates": [
     {
+      "id": "2026-11-10-zero-clinics",
+      "date": "2026-11-10",
+      "bullets": [
+        "Fixed: A clinic whose items are all non-controllable today (for example, only Authorization Missing) no longer disappears. It stays in the Location and Clinics pickers with (0), and the recap email lists it with 0."
+      ]
+    },
+    {
       "id": "2026-11-08-bell-home",
       "date": "2026-11-08",
       "bullets": [
