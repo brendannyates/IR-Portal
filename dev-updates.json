@@ -1,10 +1,18 @@
 {
   "updates": [
     {
+      "id": "2026-11-10-all-clinics",
+      "date": "2026-11-10",
+      "bullets": [
+        "Changed: Every clinic is listed in the Location and Clinics pickers and in the recap email, even when it has nothing on today's report. Those clinics show 0 in every column.",
+        "New: Settings › Clinic contacts lists every clinic. A clinic that closed can be removed there; it comes back if it shows up on a later export."
+      ]
+    },
+    {
       "id": "2026-11-10-zero-clinics",
       "date": "2026-11-10",
       "bullets": [
-        "Fixed: A clinic whose items are all non-controllable today (for example, only Authorization Missing) no longer disappears. It stays in the Location and Clinics pickers with (0), and the recap email lists it with 0."
+        "Fixed: A clinic whose items are all non-controllable today (for example, only Authorization Missing) no longer disappears. It stays in the Location and Clinics pickers with (0), and the recap email lists it with 0 in every column."
       ]
     },
     {

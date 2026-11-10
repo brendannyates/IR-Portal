@@ -393,6 +393,7 @@ const DEFAULTS = {
   clinics: {},     // facility -> { email, leader }
   ccAlways: '', ccClinic: '', supDefault: '', signoff: '',
   codify: true, rename: {},
+  facs: ['Austin','Burlingame','Castro Street','El Dorado Hills','Fairfield','Houston','Los Angeles','Mission Viejo','Newport Beach','Oakland','Post','Sacramento','San Rafael','Santa Monica','Seattle','Sierra College','Stockton','Tacoma','Walnut Creek','Wenatchee'], // every clinic to list, even with 0 items; starts with the clinics on the Oct-Nov 2026 exports, then adds any new one it reads
   rptTo: '', rptCc: '', rptSubject: 'IR Portal', // recipients are set in Settings (kept out of this public repo)
   erIntro: 'Auths! Please see the Filtered tabs on the attached document to see our outstanding non-interventional auth related items.', erKeep: null, irDecide: {},
   provIntro: 'The following encounters have been identified as pending signature in the billing portal. Could you please complete sign off on these this week?',
@@ -568,7 +569,11 @@ const wlHas = f => !wlOn() || S.wl.list.includes(f);
 const scope = () => S.loc ? S.rows.filter(r => r.fac === S.loc) : wlOn() ? S.rows.filter(r => S.wl.list.includes(r.fac)) : S.rows; // header location, or the Worklist clinic picker
 function wlLabel(){ if (S.loc) return S.loc; if (!wlOn()) return 'All locations'; const l = S.wl.list; return !l.length ? 'No clinics' : l.length <= 3 ? l.join(', ') : `${l.length} clinics`; }
 // multi-select clinic dropdown. k = 'wl' (Worklist, last selection) or 'def' (Settings default)
-const msFacs = () => [...groupBy(S.rows, 'fac').entries()].map(([f, rs]) => [f, rs.filter(inView)]).sort((a, b) => byName(a[0], b[0])); // every clinic on the tab, even with 0 items in view
+// every clinic: the remembered list (Settings › Clinic contacts) plus any on the tab, so a clinic with 0 items still shows
+const knownFacs = () => Array.isArray(S.cfg && S.cfg.facs) ? S.cfg.facs : [];
+const allFacs = () => [...new Set([...knownFacs(), ...S.rows.map(r => r.fac)])].filter(Boolean).sort(byName);
+const facRows = () => { const m = groupBy(S.rows.filter(inView), 'fac'); return allFacs().map(f => [f, m.get(f) || []]); };
+const msFacs = () => facRows();
 const msGet = k => k === 'def' ? wlDefault() : (S.wl || { mode: 'all' });
 function msSet(k, v){
   if (k === 'def'){ try { localStorage.setItem('irWlDefault', JSON.stringify(v)); } catch {} }
@@ -837,6 +842,8 @@ async function reload0(quiet){
     if (!d.values){ S.loadErr = auto ? 'There\'s no IR Portal export or Filtered tab in this workbook yet.' : `There's no tab named "${S.cfg.sheet}" in this workbook.`; S.rows = []; S.missing = []; }
     else { const p = parse(d.values, d.sheet); S.rows = p.rows; S.missing = p.missing;
       for (const r of S.rows) if (r.id && !S.notes[r.id] && (r.sheetNote || STATUSES.includes(r.sheetStatus))) S.notes[r.id] = { note: r.sheetNote, status: STATUSES.includes(r.sheetStatus) ? r.sheetStatus : '', at: null }; // typed straight into A/B
+      { const add = [...new Set(S.rows.map(r => r.fac))].filter(f => f && f !== '(No facility)' && !knownFacs().includes(f)); // remember a clinic the first time it's on a tab
+        if (add.length){ S.cfg.facs = [...knownFacs(), ...add].sort(byName); try { await saveCfg(); } catch (e){ console.error(e); } } }
       S.loadErr = p.missing.length ? `The "${d.sheet}" tab is missing these headers: ${p.missing.join(', ')}.` : ''; S.sheetName = d.sheet; }
     if ((S.cfg.dir || []).length && S.rows.some(r => r.prov && !(S.cfg.providers[r.prov] || {}).dirNote && !(S.cfg.providers[r.prov] || {}).dirName)){ applyDirectory(); try { await saveCfg(); } catch {} }
     S.loadedAt = new Date();
@@ -874,9 +881,9 @@ function header(){
       ${S.who ? `<span class="whoami"><b>${esc(S.who)}</b><button class="linkbtn" data-act="switchUser">Switch user</button></span>` : ''}</div>
     <nav class="tabs">${tabs.map(([k, l, b]) => `<button data-act="tab" data-v="${k}" ${S.tab === k || (k === 'work' && ['sig', 'clinic'].includes(S.tab)) ? 'aria-current="page"' : ''}>${l}${b}</button>`).join('')}</nav></header>`;
 }
-function locList(){ return [...groupBy(S.rows, 'fac').entries()].map(([f, rs]) => [f, rs.filter(inView).length]).sort((a, b) => byName(a[0], b[0])); } // a clinic with only non-controllable items shows as (0)
+function locList(){ return facRows().map(([f, rs]) => [f, rs.length]); } // a clinic with no items in view shows as (0)
 function render(){
-  if (S.loc && S.rows.length && !S.rows.some(r => r.fac === S.loc)) S.loc = ''; // location no longer on the tab
+  if (S.loc && S.rows.length && !allFacs().includes(S.loc)) S.loc = ''; // location no longer known (a known clinic with 0 items stays picked)
   if (!S.store) return;
   if (!S.booted){ $('#app').innerHTML = bootHTML(); return; }
   if (!S.who || S.picking){ $('#app').innerHTML = pickHTML(); const f = $('#whoNew'); if (f && !(S.users || []).length) f.focus(); return; }
@@ -1505,7 +1512,8 @@ function setHTML(){
   const c = S.cfg; const descs = [...groupBy(S.rows, 'desc').entries()].sort((a, b) => b[1].length - a[1].length || byName(a[0], b[0]));
   const known = new Set(descs.map(d => d[0])); const extra = Object.keys(Object.assign({}, c.ctrl, c.route)).filter(d => !known.has(d));
   const provs = [...new Set([...S.rows.map(r => r.prov), ...Object.keys(c.providers)])].filter(p => p && p !== '(No provider)').sort(byName);
-  const facs = [...new Set([...S.rows.filter(r => isCtrl(r.desc) && routeOf(r.desc) === 'clinic').map(r => r.fac), ...Object.keys(c.clinics)])].sort(byName);
+  const facs = [...new Set([...S.rows.filter(r => isCtrl(r.desc) && routeOf(r.desc) === 'clinic').map(r => r.fac), ...Object.keys(c.clinics), ...knownFacs()])].sort(byName);
+  const onTab = new Set(S.rows.map(r => r.fac));
   const sel = (d) => { const v = routeOf(d); return `<select class="fld" data-route="${esc(d)}" style="width:auto;min-width:175px"><option value="provider" ${v === 'provider' ? 'selected' : ''}>Provider reminder</option><option value="clinic" ${v === 'clinic' ? 'selected' : ''}>Clinic action list</option><option value="none" ${v === 'none' ? 'selected' : ''}>Track only</option></select>`; };
   return `${S.loadErr ? `<div class="msg bad">${esc(S.loadErr)}</div>` : ''}
   <div class="cols"><div>
@@ -1542,8 +1550,8 @@ function setHTML(){
       <label class="lbl" for="ccClinic">Always cc on clinic emails</label><input class="fld" id="ccClinic" data-cfg="ccClinic" value="${esc(c.ccClinic)}">
       <label class="lbl" for="clinicIntro">Message</label><textarea class="fld" id="clinicIntro" data-cfg="clinicIntro">${esc(c.clinicIntro)}</textarea>
       <h3>Clinic contacts</h3>
-      <div class="tblwrap"><table class="set"><thead><tr><th>Location</th><th>Clinic email</th><th>Practice leader cc</th></tr></thead><tbody>
-        ${facs.map(f => { const x = c.clinics[f] || {}; return `<tr><td>${esc(f)}</td><td><input class="fld" data-clinic="${esc(f)}" data-k="email" value="${esc(x.email)}" aria-label="Clinic email for ${esc(f)}"></td><td><input class="fld" data-clinic="${esc(f)}" data-k="leader" value="${esc(x.leader)}" aria-label="Leader for ${esc(f)}"></td></tr>`; }).join('') || '<tr><td colspan="3" class="empty">Locations with clinic items appear here.</td></tr>'}
+      <div class="tblwrap"><table class="set"><thead><tr><th>Location</th><th>Clinic email</th><th>Practice leader cc</th><th></th></tr></thead><tbody>
+        ${facs.map(f => { const x = c.clinics[f] || {}; return `<tr><td>${esc(f)}</td><td><input class="fld" data-clinic="${esc(f)}" data-k="email" value="${esc(x.email)}" aria-label="Clinic email for ${esc(f)}"></td><td><input class="fld" data-clinic="${esc(f)}" data-k="leader" value="${esc(x.leader)}" aria-label="Leader for ${esc(f)}"></td><td>${knownFacs().includes(f) && !onTab.has(f) ? `<button class="linkbtn" data-act="forgetFac" data-f="${esc(f)}" title="Stop listing this clinic (for a clinic that closed). It comes back if it's on a later export.">Remove</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="4" class="empty">Locations with clinic items appear here.</td></tr>'}
       </tbody></table></div></div>`}
     ${!isAdmin() ? '' : `<div class="card"><h2>Daily update emails (Reports tab)</h2>
       <label class="lbl" for="rptTo">To</label><input class="fld" id="rptTo" data-cfg="rptTo" value="${esc(c.rptTo)}">
@@ -1688,6 +1696,7 @@ document.addEventListener('click', async ev => {
     setStart: () => { try { localStorage.setItem('irStart', v); } catch {} render(); toast('ok', `${v === 'rep' ? 'Reports' : 'Clinic Dashboard'} will open first on this computer.`); },
     renameCat: () => renameCat(b.dataset.c),
     renameSave: async () => { if (!renameCheck()) { if (S._rn && S._rn.needEx && !($('#rnEx')?.value || '').trim()) toast('warn', 'Paste an example description first.'); return; } const oldN = b.dataset.c, newN = $('#rnNew').value.trim(); S._rn = null; closeModal(); if (newN !== oldN) await renameApply(oldN, newN); },
+    forgetFac: async () => { const f = b.dataset.f; S.cfg.facs = knownFacs().filter(x => x !== f); await saveCfg(); if (S.loc === f) setLoc(''); else render(); toast('ok', `${esc(f)} is no longer listed. It comes back if it shows up on an export.`); },
     unrename: async () => { const m = Object.assign({}, S.cfg.rename); delete m[b.dataset.k]; S.cfg.rename = m; await saveCfg(); S.irCache = null; await reload(true); toast('ok', 'Rename undone. Rebuild a Filtered tab to update it.'); },
     incSave: async () => { const id = b.dataset.id; const note = $('#incNote').value, st = $('#incStatus').value, flag = $('#incFlag').checked;
       const picks = new Map(); document.querySelectorAll('#sheet [data-rcbase]').forEach(s => { let to = s.value; if (to === '__new') to = ($(`#sheet [data-rcnew="${s.dataset.rci}"]`)?.value || '').trim(); if (to && !picks.has(s.dataset.rcbase)) picks.set(s.dataset.rcbase, to); });
@@ -1905,6 +1914,7 @@ async function resolveOutliers(data){
 function irCounts(rows){
   const byDesc = new Map(), byLoc = new Map();
   for (const r of rows){ if (!byLoc.has(r.fac)) byLoc.set(r.fac, new Map()); if (!r.c.ctrl) continue; byDesc.set(r.c.cat, (byDesc.get(r.c.cat) || 0) + 1); const m = byLoc.get(r.fac) || new Map(); m.set(r.c.cat, (m.get(r.c.cat) || 0) + 1); byLoc.set(r.fac, m); }
+  for (const f of knownFacs()) if (!byLoc.has(f)) byLoc.set(f, new Map()); // clinics with nothing on this report still get a row of 0s
   return { byDesc, byLoc, total: [...byDesc.values()].reduce((a, b) => a + b, 0) };
 }
 const dateCols = header => header.map((h, i) => /^(dob|dos|due date|entry date|entrydt|last activity date|date.*)$/i.test(String(h).trim()) ? i : -1).filter(i => i >= 0);
@@ -1984,9 +1994,10 @@ function pivotTables(cur, base){
   let t2 = `Clinic\t${top.map(shortCat).join('\t')}\tOther\t${cmp ? 'AM\tEOD\tDifference' : 'Total'}\n`;
   for (const l of locs){
     const cm = cur.byLoc.get(l), bm = cmp ? base.byLoc.get(l) : null;
-    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return cell('td', DR, (n || (cmp && b ? 0 : dot)) + (cmp ? delta(n, b, true) : '')); }).join('');
+    const z = !tot(cur, l) && !tot(base, l); // clinic with nothing counted (e.g. only Authorization Missing): 0 in every column, not dots
+    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return cell('td', DR, (n || (z || (cmp && b) ? 0 : dot)) + (cmp ? delta(n, b, true) : '')); }).join('');
     const on = other(cm), ob = other(bm);
-    h2 += `<tr>${cell('td', D + ';font-weight:600', esc(l))}${cells}${cell('td', DR, (on || (cmp && ob ? 0 : dot)) + (cmp ? delta(on, ob, true) : ''))}${cmp ? cell('td', DR, tot(base, l)) + cell('td', DR + ';font-weight:700', tot(cur, l)) + cell('td', DR, delta(tot(cur, l), tot(base, l))) : cell('td', DR + ';font-weight:700', tot(cur, l))}</tr>`;
+    h2 += `<tr>${cell('td', D + ';font-weight:600', esc(l))}${cells}${cell('td', DR, (on || (z || (cmp && ob) ? 0 : dot)) + (cmp ? delta(on, ob, true) : ''))}${cmp ? cell('td', DR, tot(base, l)) + cell('td', DR + ';font-weight:700', tot(cur, l)) + cell('td', DR, delta(tot(cur, l), tot(base, l))) : cell('td', DR + ';font-weight:700', tot(cur, l))}</tr>`;
     t2 += `${l}\t${top.map(d => g(cm, d)).join('\t')}\t${on}\t${cmp ? tot(base, l) + '\t' + tot(cur, l) + '\t' + dt(tot(cur, l), tot(base, l)) : tot(cur, l)}\n`;
   }
   const cTop = top.map(d => g(cur.byDesc, d)), cOther = cur.total - cTop.reduce((a, b) => a + b, 0);
