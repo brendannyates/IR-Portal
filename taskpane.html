@@ -1981,8 +1981,8 @@ function chg(now, before){
 // compact email tables, side by side: totals by description (left) and one row per clinic (right).
 // Every cell sets an exact line height so Outlook doesn't pad pasted rows.
 const shortCat = c => { const t = String(c).replace(/^(ER|IR)\s*\/\s*HIM\s*\/\s*NB\s*\/\s*/i, '').replace(/\s*\/\s*/g, ' / ').trim(); return t.length > 30 ? t.slice(0, 28).trim() + '…' : t; };
-function pivotTables(cur, base, L = ['AM', 'EOD']){ // L: the two compared columns, older first
-  const cmp = !!base; const g = (m, k) => (m && m.get(k)) || 0;
+function pivotTables(cur, base, L = ['AM', 'EOD'], diffOnly = false){ // L: the two compared columns, older first; diffOnly: ▲/▼ only in the Diff column, not in each category cell
+  const cmp = !!base, catDelta = cmp && !diffOnly; const g = (m, k) => (m && m.get(k)) || 0;
   const F = 'font-family:Aptos,Calibri,Segoe UI,Arial,sans-serif;font-size:12px;color:#222;line-height:15px;mso-line-height-rule:exactly';
   const TB = `border-collapse:collapse;${F}`;
   const P = 'margin:0;line-height:15px;mso-line-height-rule:exactly';
@@ -2010,9 +2010,9 @@ function pivotTables(cur, base, L = ['AM', 'EOD']){ // L: the two compared colum
   for (const l of locs){
     const cm = cur.byLoc.get(l), bm = cmp ? base.byLoc.get(l) : null;
     const z = !tot(cur, l) && !tot(base, l); // clinic with nothing counted (e.g. only Authorization Missing): 0 in every column, not dots
-    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return cell('td', DR, (n || (z || (cmp && b) ? 0 : dot)) + (cmp ? delta(n, b, true) : '')); }).join('');
+    const cells = top.map(d => { const n = g(cm, d), b = g(bm, d); return cell('td', DR, (n || (z || (cmp && b) ? 0 : dot)) + (catDelta ? delta(n, b, true) : '')); }).join('');
     const on = other(cm), ob = other(bm);
-    h2 += `<tr>${cell('td', D + ';font-weight:600', esc(l))}${cells}${cell('td', DR, (on || (z || (cmp && ob) ? 0 : dot)) + (cmp ? delta(on, ob, true) : ''))}${cmp ? cell('td', DR, tot(base, l)) + cell('td', DR + ';font-weight:700', tot(cur, l)) + cell('td', DR, delta(tot(cur, l), tot(base, l))) : cell('td', DR + ';font-weight:700', tot(cur, l))}</tr>`;
+    h2 += `<tr>${cell('td', D + ';font-weight:600', esc(l))}${cells}${cell('td', DR, (on || (z || (cmp && ob) ? 0 : dot)) + (catDelta ? delta(on, ob, true) : ''))}${cmp ? cell('td', DR, tot(base, l)) + cell('td', DR + ';font-weight:700', tot(cur, l)) + cell('td', DR, delta(tot(cur, l), tot(base, l))) : cell('td', DR + ';font-weight:700', tot(cur, l))}</tr>`;
     t2 += `${l}\t${top.map(d => g(cm, d)).join('\t')}\t${on}\t${cmp ? tot(base, l) + '\t' + tot(cur, l) + '\t' + dt(tot(cur, l), tot(base, l)) : tot(cur, l)}\n`;
   }
   const cTop = top.map(d => g(cur.byDesc, d)), cOther = cur.total - cTop.reduce((a, b) => a + b, 0);
@@ -2030,7 +2030,7 @@ async function showIrEmail(part){
     const prior = part === 'AM' ? S.store.getDoc('irPrior') : null; // the previous report, chosen in the Morning update
     const base = part === 'EOD' && S.rep.ir.AM ? irCounts((await irData('AM')).rows) : prior ? baseCounts(prior) : null;
     busy(false);
-    const t = pivotTables(cur, base, prior && base ? [baseLabel(prior), 'Today'] : undefined);
+    const t = pivotTables(cur, base, prior && base ? [baseLabel(prior), 'Today'] : undefined, part === 'AM' && isMorningUser()); // Hunter's AM email: change shown only in the Diff column
     const when = part === 'EOD' ? 'at end of day' : 'this morning', vs = prior && part === 'AM' ? `the ${baseLabel(prior)} report` : 'this morning';
     const sum = base ? `<p style="margin:0 0 6px">${cur.total} controllable items open ${when}, ${cur.total === base.total ? 'unchanged from' : cur.total < base.total ? (base.total - cur.total) + ' fewer than' : (cur.total - base.total) + ' more than'} ${esc(vs)} (${base.total}).</p>` : '';
     const sumT = base ? `${cur.total} controllable items open ${when} vs ${base.total} on ${vs}.\n\n` : '';
@@ -2538,7 +2538,7 @@ function openFull(){
 }
 
 // ---------- update notice: the build stamps APP_BUILD and version.json; an open panel compares them ----------
-const APP_BUILD = '6892ad9bb9';
+const APP_BUILD = 'e35b533cb8';
 function checkUpdate(){
   if (APP_BUILD.startsWith('__') || S._upd || Date.now() - (S._updAt || 0) < 60000) return; // unbuilt source, already shown, or checked in the last minute
   S._updAt = Date.now();
