@@ -1,6 +1,13 @@
 {
   "updates": [
     {
+      "id": "2026-11-13-am-diff-only",
+      "date": "2026-11-13",
+      "bullets": [
+        "Changed: In the morning email, the clinic table shows the change only in the Diff column at the end, not next to each category. The end of day email is unchanged."
+      ]
+    },
+    {
       "id": "2026-11-12-bell-static",
       "date": "2026-11-12",
       "bullets": [
